@@ -34,8 +34,7 @@ from scipy import signal
 from scipy import interpolate
 import scipy.integrate as integrate
 
-sys.path.append('./physics/')
-from physical_constants import *
+from physics.physical_constants import *
 
 
 def combined_model(freqs, gr_noise, tau_qp, tls_a, tls_b, f0, Qr, amp_noise):

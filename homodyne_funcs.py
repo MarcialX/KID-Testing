@@ -139,7 +139,6 @@ def fit_mix_psd(f, psd_on, psd_off, f0, Qr, amp_range=[7.5e4, 8.0e4], trim_range
     except:
         return f[psd_clean_for_nep>0], psd_clean_for_nep[psd_clean_for_nep>0], None, None, None
 
-
 def get_didf_dqdf(f, I, Q, f0, **kwargs):
     """
     Get the gradients didf/dqdf.
