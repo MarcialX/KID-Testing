@@ -57,10 +57,13 @@ from misc.misc_funcs import *
 #from kid_finder import *
 from data_processing import *
 
+from datetime import datetime
+
 
 # G L O B A L   D E F I N I T I O N S
 # ----------------------------------------------------------
 TEMP_TYPE = {'mK':'D',  'K':'B'}
+BACKUP_FILE = "proj_bkp"
 
 lstyle = ['-', '-', '--', 'dotted', '.-']
 lmarker = ['s', '^', 'o', '*']
@@ -89,6 +92,8 @@ class Homodyne:
         overdriven = kwargs.pop('overdriven', [])
         # Expected KIDs
         expected = kwargs.pop('expected', None)
+        # Load saved project
+        load_saved = kwargs.pop('load_saved', True)
         # ----------------------------------------------
 
         # Create a directory for the project
@@ -99,22 +104,25 @@ class Homodyne:
         self.overdriven = overdriven
 
         if proj_name is None:
-            name = diry.split('/')[-3]
+            name = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             self.project_name = 'P-'+name
         else:
             self.project_name = proj_name
 
-        foldername = diry.split('/')[-2]
-        self.date, self.data_type, self.meas, self.sample = self._get_meas_char_from_foldername(foldername)
-
-        if os.path.exists(os.path.dirname(diry)):
+        if not load_saved:
             # Loading data base
             msg('Loading directory...', 'info')
             self.data = self.load_data(diry, only_vna=only_vna, expected=expected)
+        else:
+            msg('Loading saved file', 'info')
+            self.data = np.load(diry+'/backup_data/'+BACKUP_FILE+'.npy', allow_pickle=True).item()
+            
+            diry = np.load(diry+'/backup_data/data_diry.npy')
 
-        elif diry.endswith('.npy'):
-            msg('Loading npy file', 'info')
-            self.data = np.load(diry, allow_pickle=True).item()
+        self.data_diry = diry
+
+        foldername = diry.split('/')[-2]
+        self.date, self.data_type, self.meas, self.sample = self._get_meas_char_from_foldername(foldername)
 
         # Create working directory
         self._create_diry(self.work_dir+self.project_name)
@@ -122,8 +130,10 @@ class Homodyne:
         self._create_diry(self.work_dir+self.project_name+'/fit_vna_dict')
         self._create_diry(self.work_dir+self.project_name+'/fit_psd_results')
         self._create_diry(self.work_dir+self.project_name+'/fit_psd_dict')
+        self._create_diry(self.work_dir+self.project_name+'/backup_data')
 
         self.add_in_atten = 0
+        self.add_out_atten = 0
 
         self.found_kids = []
 
@@ -309,9 +319,10 @@ class Homodyne:
         """
         # If the path is not defined
         if filename is None:
-            filename = self.proj_name + '-data_analysis'
+            filename = BACKUP_FILE
 
-        np.save(self.work_dir+self.proj_name+'/'+filename, self.data)
+        np.save(self.work_dir+self.proj_name+'/backup_data/'+filename, self.data)
+        np.save(self.work_dir+self.proj_name+'/backup_data/data_diry.npy', self.data_diry)
 
     def fit_vna_resonators(self, kid=None, temp=None, atten=None, sample=0, n=3.5, **kwargs):
         """

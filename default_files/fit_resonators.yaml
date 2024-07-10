@@ -1,0 +1,35 @@
+# F I T   R E S O N A T O R S
+# ---------------------------------------------------
+# ---------------------------------------------------
+
+# L O A D   D A T A
+# ---------------------------------------------------
+# Load saved data
+# If False it reads the FITS files, otherwise load the .npy files
+LOAD_PROJ : False
+# Save project when the tasks are completed.
+SAVE_PROJ : True
+
+# D A T A   S E L E C T I O N
+# ---------------------------------------------------
+# Temperatures: Base temperature or Blackbody.
+TEMPS : "all"
+# Attenuations
+ATTS : "all"
+# Resonators
+KIDS : "all"
+# Number of repeats
+SAMPLES : "all"
+# Pre-overdriven attenuations. 
+# Previous attenuation to the overdriven point
+ATT_OVRDRN : []
+
+# T A S K S   D E F I N I T I O N
+# ---------------------------------------------------
+TASKS : 
+  "1" :
+    "name": "fit_res"
+    "params": {
+      "type" : "vna",
+      "n" : 3.5
+    }

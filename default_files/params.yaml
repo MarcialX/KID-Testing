@@ -1,0 +1,16 @@
+# Global parameters for data analysis.
+
+# D I R E C T O R I E S
+# -------------------------------------------
+# Data folder
+DATA_FOLDER : "/home/marcial/detdaq/3005241000-Ti10Al60_LO/20240603_Dark_Data_Auto/"
+# Project name
+PROJECT_NAME : ""
+# Project folder
+PROJECT_FOLDER : ""
+
+# E X P E R I M E N T   P A R A M S
+# -------------------------------------------
+# No defined additional attenuations
+IN_ADD_ATT : 0
+OUT_ADD_ATT : 0

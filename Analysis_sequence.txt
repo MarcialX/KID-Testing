@@ -1,0 +1,19 @@
+A S   U S E R
+1. Initial definitions
+    - Project name
+    - Data location
+    - Initial templates
+
+2. Run the templates
+    - Fit the resonators
+    - Get useful plots
+        - Power ws Qi, Qc, Qr
+        - Sweeps per KID as a function of temperature/attenuation.
+        - Responsivity
+        - Others...
+    - Get PSD data
+        - Fit data (check method...)
+    - Get useful PSD plots
+        - Tqp vs temperature/attenuation
+        - GR vs temperature/attenuation
+    - Get NEP, NET
