@@ -28,8 +28,17 @@ ATT_OVRDRN : []
 # ---------------------------------------------------
 TASKS : 
   "1" :
-    "name": "fit_res"
+    "name": "load_fit_res"
     "params": {
-      "type" : "vna",
-      "n" : 3.5
+      "path" : None,
+      "type" : "vna"
+    }
+  "2" :
+    "name" : "find_overdriven"
+    "params": {
+    }  
+  "3" :
+    "name": "merge_vna"
+    "params": {
+      "xls_report" : True
     }

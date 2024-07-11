@@ -40,8 +40,8 @@ from scipy.optimize import curve_fit
 
 from astropy.io import fits
 
-import matplotlib
-matplotlib.use('Agg')
+#import matplotlib
+#matplotlib.use('Agg')
 from matplotlib.pyplot import *
 ion()
 
@@ -95,7 +95,7 @@ class Homodyne:
         # Expected KIDs
         expected = kwargs.pop('expected', None)
         # Load saved project
-        load_saved = kwargs.pop('load_saved', True)
+        load_saved = kwargs.pop('load_saved', False)
         # ----------------------------------------------
 
         # Create a directory for the project
@@ -128,10 +128,18 @@ class Homodyne:
 
         # Create working directory
         self._create_diry(self.work_dir+self.project_name)
-        self._create_diry(self.work_dir+self.project_name+'/fit_vna_results')
-        self._create_diry(self.work_dir+self.project_name+'/fit_vna_dict')
+        self._create_diry(self.work_dir+self.project_name+'/fit_res_results')
+        self._create_diry(self.work_dir+self.project_name+'/fit_res_results/vna')
+        self._create_diry(self.work_dir+self.project_name+'/fit_res_results/homodyne')
+        self._create_diry(self.work_dir+self.project_name+'/fit_res_results/summary_plots')
+
+        self._create_diry(self.work_dir+self.project_name+'/fit_res_dict')
+        self._create_diry(self.work_dir+self.project_name+'/fit_res_dict/vna')
+        self._create_diry(self.work_dir+self.project_name+'/fit_res_dict/homodyne')
+
         self._create_diry(self.work_dir+self.project_name+'/fit_psd_results')
         self._create_diry(self.work_dir+self.project_name+'/fit_psd_dict')
+
         self._create_diry(self.work_dir+self.project_name+'/backup_data')
 
         self.add_in_atten = 0
@@ -252,7 +260,6 @@ class Homodyne:
 
                             print('++++++++++++++++++++++++')
                             print(vna_full_path)
-                            print(atten, temp)
 
                             if not temp in data['vna']['full']:
                                 data['vna']['full'][temp] = {}
@@ -353,7 +360,7 @@ class Homodyne:
         tau = kwargs.pop('tau', 50e-9)
         # Name
         prefix = kwargs.pop('prefix', 'A')
-        # Plot resolution
+        # Plot results
         plot_res = kwargs.pop('plot_res', True)
         # Verbose
         verbose = kwargs.pop('verbose', False)
@@ -419,7 +426,7 @@ class Homodyne:
                 print('Error getting Qi error')
 
             # Save data
-            np.save(self.work_dir+self.project_name+'/fit_vna_dict/fit-'+str(kid)+'-'+str(temp).zfill(3)+'-'+str(atten).zfill(2)+'-S'+str(sample), self.data['vna'][kid][temp][atten]['fit'][sample])
+            np.save(self.work_dir+self.project_name+'/fit_res_dict/vna/fit-'+str(kid)+'-'+str(temp).zfill(3)+'-'+str(atten).zfill(2)+'-S'+str(sample), self.data['vna'][kid][temp][atten]['fit'][sample])
             msg(str(kid)+'-'+str(temp).zfill(3)+'-'+str(atten).zfill(2)+'-S'+str(sample)+' fit file saved', 'ok')
 
             if verbose:
@@ -499,7 +506,7 @@ class Homodyne:
                     ax_iq.spines[location].set_linewidth(2)
 
                 name = str(kid)+'-'+str(temp)+'-'+str(atten)+'-S'+str(sample)
-                fig.savefig(self.work_dir+self.project_name+'/fit_vna_results/'+prefix+'-'+name+'.png')
+                fig.savefig(self.work_dir+self.project_name+'/fit_res_results/vna/'+prefix+'-'+name+'.png')
                 close(fig)
 
                 ax_err, ax_iq, ax_sweep = None, None, None
@@ -567,6 +574,82 @@ class Homodyne:
                     except:
                         print('No fit in: ', kid, tmp, att)
 
+    def find_overdriven_atts(self, temp, sample=0, thresh=0.7, inter=False):
+        """
+        Find the pre-overdriven attenuations given the fit results + manual selection (opt).
+        """
+
+        # Select all the KIDs
+        kids = self._get_kids_to_sweep(None)
+        cnt = 0
+        fig_cnt = -1
+        tot_cnt = 0
+        figs, axs = [], []
+        for k, kid in enumerate(kids):
+            # Select all the attenuations
+            tmp = self._get_temps_to_sweep(temp, kid)[0]
+            attens = self._get_atten_to_sweep(None, tmp, kid)
+            kid_non = np.zeros_like(attens, dtype=float)
+            for a, att in enumerate(attens):
+                # Check the non-linearity
+                kid_non[a] = self.data['vna'][kid][tmp][att]['fit'][sample]['non']
+
+            idx = len(kid_non) - np.where(kid_non[::-1]>thresh)[0]
+            if len(idx) > 0:
+                idx = idx[0]
+            else:
+                idx = 0
+
+            if k%6 == 0:
+                fig, ax = subplots(6, 5)
+                subplots_adjust(left=0.07, right=0.99, top=0.94, bottom=0.07, hspace=0.0, wspace=0.0)
+                
+                figs.append(fig)
+                axs.append(ax)
+                
+                fig_cnt += 1
+                cnt = 0
+
+            for i in np.arange(5):
+                idx_map = i + idx - 2
+                
+                ii = cnt%5
+                jj = int(cnt/5)
+
+                if idx_map >= 0:
+                    f, s21 = self.data['vna'][kid][tmp][attens[idx_map]]['data'][sample]
+                    f_fit = self.data['vna'][kid][tmp][attens[idx_map]]['fit'][sample]['freq_data']
+                    fit_s21 = self.data['vna'][kid][tmp][attens[idx_map]]['fit'][sample]['fit_data']
+
+                    axs[fig_cnt][jj, ii].plot(s21.real, s21.imag, 'ro-')
+                    axs[fig_cnt][jj, ii].plot(fit_s21.real, fit_s21.imag, 'k')
+
+                    axs[fig_cnt][jj, ii].axis('equal')
+
+                    if i == 2:
+                        axs[fig_cnt][jj, ii].patch.set_facecolor('green')
+                    else:
+                        axs[fig_cnt][jj, ii].patch.set_facecolor('blue')
+
+                    axs[fig_cnt][jj, ii].patch.set_alpha(0.2)
+                    axs[fig_cnt][jj, ii].text(np.min(s21.real)-0.25*(np.max(s21.real)-np.min(s21.real)), np.min(s21.imag), attens[idx_map] + ' dB', {'fontsize': 14, 'color':'white'}, bbox=dict(facecolor='purple', alpha=0.95))
+
+                if jj == 5 or tot_cnt == len(kids)-1:
+                    axs[fig_cnt][jj, ii].set_xlabel("I [V]")
+                if cnt%5 == 0:
+                    axs[fig_cnt][jj, ii].set_ylabel(kid+"\nQ [V]")
+
+                """
+                self.update_plot(self._freq, self._s21, self._peaks, self._flags)
+
+                self._onclick_xy = self._fig.canvas.mpl_connect('button_press_event', self._onclick)
+                self._keyboard = self._fig.canvas.mpl_connect('key_press_event', self._key_pressed)
+
+                show()
+                """
+
+                cnt += 1
+                tot_cnt += 1
 
     def find_kids(self, f, s21, down_factor=35, baseline_params=(501, 5), Qr_lim=[1500, 150000], Qc_lim=[1000, 150000], inter=True):
         """
@@ -767,7 +850,7 @@ class Homodyne:
 
     def split_continuous_by_kid(self, temp=None, atten=None, lws=6, Qr=1000):
         """
-        Divide the VNA by the found detectors.
+        Divide the VNA by the found detectors. Under construction...
         """
 
         temps = self._get_temps_to_sweep(temp, vna_type='con')
@@ -1253,18 +1336,19 @@ class Homodyne:
                     except Exception as e:
                         msg('Error loading file\n'+str(e), 'warn')
 
-    def load_fit(self, folder):
+    def load_fit(self, folder, data_type='vna'):
         """
         Load fit files.
         Parameters
         ----------
-        Input :
-            folder : string
+        folder : string
             Folder name from where the sweeps fit are extracted.
+        data_type : string
+            Data type: vna or homodyne.
         ----------
         """
 
-        files = next(walk(folder+'/fit_vna_dict/'), (None, None, []))[2]
+        files = next(walk(folder+'/fit_res_dict/'+data_type+'/'), (None, None, []))[2]
 
         for f in files:
             kid = f.split('-')[1]
@@ -1273,7 +1357,7 @@ class Homodyne:
             ns = int((f.split('-')[-1][1:]).split('.')[0])
 
             try:
-                sample = np.load(folder+'/fit_vna_dict/'+f, allow_pickle=True).item()
+                sample = np.load(folder+'/fit_res_dict/'+data_type+'/'+f, allow_pickle=True).item()
 
                 if not 'fit' in self.data['vna'][kid][temp][atten]:
                     self.data['vna'][kid][temp][atten]['fit'] = {}
@@ -1589,7 +1673,6 @@ class Homodyne:
         kids = self._get_kids_to_sweep(kid, mode='ts')
         for k, kid in enumerate(kids):
             k2 = int(kid[1:])
-            print(k2)
             #print(kid, temp, atten[k])
             tmp = self._get_temps_to_sweep(temp, kid, mode='ts')[0]
             att = self._get_atten_to_sweep(atten[k2], tmp, kid, mode='ts')[0]

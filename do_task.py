@@ -62,8 +62,17 @@ ATT_OVRDRN = tasks_data['ATT_OVRDRN']
 LOAD_PROJ = tasks_data['LOAD_PROJ']
 SAVE_PROJ = tasks_data['SAVE_PROJ']
 
+# In case all the resonators are selected this is the
+# general definition. However, it changes slightly for
+# task: "fit_res"
 if KIDS == "all":
-    kids = None
+    kids = None 
+if TEMPS == "all":
+    temps = None 
+if ATTS == "all":
+    atts = None
+if SAMPLES == "all":
+    samples = None
 
 # Load gral params file
 msg('Loading general params file', 'info')
@@ -98,7 +107,11 @@ for s, step in enumerate(TASKS):
     # Task parameters
     task_params = TASKS[step]['params']
 
+    print("T A S K : ", task_name)
+
     # Run the step
+    # ---------------------------------
+    # ---> Fit resonator
     if task_name == "fit_res":
         
         type_data = task_params['type']
@@ -127,18 +140,37 @@ for s, step in enumerate(TASKS):
 
                 for sample in samples:
                     if type_data == 'vna':
-                        print(atten, temp, sample)
-                        print('----------------')
                         h.fit_vna_resonators(kids, temp, atten, sample=sample, n=n, verbose=True)
 
-        """
-        # Fit resonators from VNA
-        step_att = 2
-        attens = np.arange(0, 60+step_att, step_att)
-        btemp = 80
+    # ---> Load fit
+    elif task_name == "load_fit_res":
 
-        samples = 3
-        for sample in range(samples):
-            for atten in attens:
-                h.fit_vna_resonators(None, btemp, atten, sample=sample, n=3.5, verbose=True)
-        """
+        path = task_params['path']
+        if path is None:
+            path = project_path+'/'+project_name
+
+        type_data = task_params['type']
+
+        h.load_fit(folder=path, data_type=type_data)        
+
+    # ---> Merge sample results
+    elif task_name == "merge_vna":
+
+        xls_report = task_params['xls_report']
+
+        h.merge_fit_res(kids, temps, atts, samples)
+
+        if xls_report:
+            h.vna_xls_report()
+
+    # ---> Summary plots pt. 1
+    elif task_name == "summary_plots_1":
+
+        # Quality factors vs drive power
+        q_vs_pwr = task_params['Q_vs_pwr']
+        h.plot_qs_vs_drive_power(kids, temps, atts, samples)
+
+
+
+
+
