@@ -639,6 +639,9 @@ class Homodyne:
                 if cnt%5 == 0:
                     axs[fig_cnt][jj, ii].set_ylabel(kid+"\nQ [V]")
 
+                self.update_power_plot(self.freq)
+
+
                 """
                 self.update_plot(self._freq, self._s21, self._peaks, self._flags)
 
