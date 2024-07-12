@@ -578,13 +578,17 @@ class Homodyne:
         """
         Find the pre-overdriven attenuations given the fit results + manual selection (opt).
         """
-
         # Select all the KIDs
         kids = self._get_kids_to_sweep(None)
+        
+        # Temporal overdriven atts
+        self.temp_att = np.zeros_like(kids, dtype=float)
+
         cnt = 0
         fig_cnt = -1
         tot_cnt = 0
-        figs, axs = [], []
+        self.n_fig_od = 0
+        ioff()
         for k, kid in enumerate(kids):
             # Select all the attenuations
             tmp = self._get_temps_to_sweep(temp, kid)[0]
@@ -601,15 +605,26 @@ class Homodyne:
                 idx = 0
 
             if k%6 == 0:
+                if fig_cnt >= 0:
+                    self.ax_od = ax 
+                    self.fig_od = fig
+
+                    self._onclick_subplot = self.fig_od.canvas.mpl_connect("button_press_event", self._onclick_subplot_event)
+                    self._keyboard_subplot = self.fig_od.canvas.mpl_connect('key_press_event', self._key_subplot_event)
+                    show()
+
                 fig, ax = subplots(6, 5)
                 subplots_adjust(left=0.07, right=0.99, top=0.94, bottom=0.07, hspace=0.0, wspace=0.0)
                 
-                figs.append(fig)
-                axs.append(ax)
-                
+                self.over_atts_mtx = np.zeros((6,5))
+
                 fig_cnt += 1
+                self.n_fig_od = fig_cnt
                 cnt = 0
 
+            # Assign overdriven attenuations
+            self.temp_att[k] = float(attens[idx][1:])
+            
             for i in np.arange(5):
                 idx_map = i + idx - 2
                 
@@ -621,38 +636,90 @@ class Homodyne:
                     f_fit = self.data['vna'][kid][tmp][attens[idx_map]]['fit'][sample]['freq_data']
                     fit_s21 = self.data['vna'][kid][tmp][attens[idx_map]]['fit'][sample]['fit_data']
 
-                    axs[fig_cnt][jj, ii].plot(s21.real, s21.imag, 'ro-')
-                    axs[fig_cnt][jj, ii].plot(fit_s21.real, fit_s21.imag, 'k')
+                    ax[jj, ii].plot(s21.real, s21.imag, 'ro-')
+                    ax[jj, ii].plot(fit_s21.real, fit_s21.imag, 'k')
 
-                    axs[fig_cnt][jj, ii].axis('equal')
+                    ax[jj, ii].axis('equal')
 
                     if i == 2:
-                        axs[fig_cnt][jj, ii].patch.set_facecolor('green')
+                        ax[jj, ii].patch.set_facecolor('green')
                     else:
-                        axs[fig_cnt][jj, ii].patch.set_facecolor('blue')
+                        ax[jj, ii].patch.set_facecolor('blue')
 
-                    axs[fig_cnt][jj, ii].patch.set_alpha(0.2)
-                    axs[fig_cnt][jj, ii].text(np.min(s21.real)-0.25*(np.max(s21.real)-np.min(s21.real)), np.min(s21.imag), attens[idx_map] + ' dB', {'fontsize': 14, 'color':'white'}, bbox=dict(facecolor='purple', alpha=0.95))
+                    ax[jj, ii].patch.set_alpha(0.2)
+
+                    #if idx_map == idx:
+                    #    text_size = 18
+                    #    box_color = 'cyan'
+                    #    text_color = 'black'
+                    #else:
+                    text_size = 14
+                    text_color = 'white'
+                    box_color = 'purple'
+
+                    ax[jj, ii].text(np.min(s21.real)-0.25*(np.max(s21.real)-np.min(s21.real)), np.min(s21.imag), attens[idx_map] + ' dB', {'fontsize': text_size, 'color':text_color}, bbox=dict(facecolor=box_color, alpha=0.95))
+                    self.over_atts_mtx[jj, ii] = float(attens[idx_map][1:])
 
                 if jj == 5 or tot_cnt == len(kids)-1:
-                    axs[fig_cnt][jj, ii].set_xlabel("I [V]")
+                    ax[jj, ii].set_xlabel("I [V]")
                 if cnt%5 == 0:
-                    axs[fig_cnt][jj, ii].set_ylabel(kid+"\nQ [V]")
-
-                self.update_power_plot(self.freq)
-
-
-                """
-                self.update_plot(self._freq, self._s21, self._peaks, self._flags)
-
-                self._onclick_xy = self._fig.canvas.mpl_connect('button_press_event', self._onclick)
-                self._keyboard = self._fig.canvas.mpl_connect('key_press_event', self._key_pressed)
-
-                show()
-                """
+                    ax[jj, ii].set_ylabel(kid+"\nQ [V]")
 
                 cnt += 1
                 tot_cnt += 1
+
+        ion()
+
+    def _onclick_subplot_event(self, event):
+        """
+        Subplot click event.
+        """
+        for i in range(6):
+            for j in range(5):
+                if event.inaxes == self.ax_od[i, j]:
+                    print ("event in ", i, j)
+                    self.update_overdriven_plot(i, j)
+                    self.temp_att[self.n_fig_od*6+i] = self.over_atts_mtx[i, j]
+                    print(self.temp_att)
+
+    def update_overdriven_plot(self, i, j):
+        """
+        Update overdriven plot.
+        """
+        for m in range(5):
+            if m == j:
+                self.ax_od[i, m].patch.set_facecolor('green')
+            else:
+                self.ax_od[i, m].patch.set_facecolor('blue')
+            self.ax_od[i, m].patch.set_alpha(0.2)
+        self.fig_od.canvas.draw_idle()
+
+    def _key_subplot_event(self, event):
+        """
+        Subplot keyboard event.
+        """
+        sys.stdout.flush()
+        if event.key in ['x', 'd']:
+
+            if event.key == 'x':
+                self.fig_od.canvas.mpl_disconnect(self._onclick_subplot)
+                self.fig_od.canvas.mpl_disconnect(self._keyboard_subplot)
+                close(self.fig_od)
+
+                # Save new attenuation ...
+
+                msg('Changes saved!', 'info')
+
+            elif event.key == 'd':
+                #self._freq = self._freq_backup
+                #self._s21 = self._s21_backup
+                #self._peaks = self._peaks_backup
+                #self._flags = self._flags_backup
+                #cla()
+                #self.update_plot(self._freq, self._s21, self._peaks, self._flags)
+                #self._fig.canvas.draw_idle()
+                msg('Undoing changes', 'info')
+
 
     def find_kids(self, f, s21, down_factor=35, baseline_params=(501, 5), Qr_lim=[1500, 150000], Qc_lim=[1000, 150000], inter=True):
         """
