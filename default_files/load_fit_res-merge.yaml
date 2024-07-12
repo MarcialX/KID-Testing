@@ -20,9 +20,6 @@ ATTS : "all"
 KIDS : "all"
 # Number of repeats
 SAMPLES : "all"
-# Pre-overdriven attenuations. 
-# Previous attenuation to the overdriven point
-ATT_OVRDRN : []
 
 # T A S K S   D E F I N I T I O N
 # ---------------------------------------------------
@@ -30,7 +27,7 @@ TASKS :
   "1" :
     "name": "load_fit_res"
     "params": {
-      "path" : None,
+      "path" : "",
       "type" : "vna"
     }
   "2" :
@@ -39,9 +36,14 @@ TASKS :
       "temp" : 80,
       "sample" : 0,
       "thresh" : 0.7
-    }  
+    }
   "3" :
     "name": "merge_vna"
     "params": {
       "xls_report" : True
     }
+  "4" :
+    "name": "summary_plots_1"
+    "params": {
+    }
+ 

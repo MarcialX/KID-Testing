@@ -82,6 +82,9 @@ try:
 except Exception as e:
     msg('Fail loading general params file. '+str(e), 'fail')
 
+
+print(gral_params)
+
 data_path = gral_params['DATA_FOLDER']
 project_name = gral_params['PROJECT_NAME']
 project_path = gral_params['PROJECT_FOLDER']
@@ -149,12 +152,12 @@ for s, step in enumerate(TASKS):
     elif task_name == "load_fit_res":
 
         path = task_params['path']
-        if path is None:
+        if path == "":
             path = project_path+'/'+project_name
 
         type_data = task_params['type']
 
-        h.load_fit(folder=path, data_type=type_data)        
+        h.load_fit(folder=path, data_type=type_data)     
 
     # ---> Merge sample results
     elif task_name == "merge_vna":
@@ -167,25 +170,26 @@ for s, step in enumerate(TASKS):
             h.vna_xls_report()
 
     # ---> Get overdriven attenuations
-    elif task_name == "atts_overdriven":
+    elif task_name == "find_overdriven":
 
         ref_temp = task_params['temp']
         ref_sample = task_params['sample']
         non_thresh = task_params['thresh']
 
-        h.find_overdriven_atts(temp, sample=ref_sample, thresh=non_thresh)
+        h.find_overdriven_atts(ref_temp, sample=ref_sample, thresh=non_thresh)
 
         # Save atts in params.yaml file
-        with open(project_path+'/'+PARAMS_FILE, 'r') as f:
+        with open(project_path+project_name+'/'+PARAMS_FILE, 'r') as f:
             lines = f.readlines()
             updated_lines = []
+            str_atts = ','.join(str(x) for x in h.overdriven)
             for line in lines:
-                if "ATTS_OVRDRVN" in line:
-                    line = line[:line.index(":") + 1] + ' "' + str(h.overdriven) + '"\n'
+                if "ATT_OVRDRN" in line:
+                    line = line[:line.index(":") + 1] + ' [' + str_atts + ']\n'
             
                 updated_lines.append(line)
 
-        with open(project_path+'/'+PARAMS_FILE, 'w') as wf:
+        with open(project_path+project_name+'/'+PARAMS_FILE, 'w') as wf:
             for line in updated_lines:
                 wf.write(line)
 

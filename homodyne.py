@@ -599,8 +599,11 @@ class Homodyne:
             attens = self._get_atten_to_sweep(None, tmp, kid)
             kid_non = np.zeros_like(attens, dtype=float)
             for a, att in enumerate(attens):
-                # Check the non-linearity
-                kid_non[a] = self.data['vna'][kid][tmp][att]['fit'][sample]['non']
+                try:
+                    # Check the non-linearity
+                    kid_non[a] = self.data['vna'][kid][tmp][att]['fit'][sample]['non']
+                except:
+                    pass
 
             idx = len(kid_non) - np.where(kid_non[::-1]>thresh)[0]
             if len(idx) > 0:
