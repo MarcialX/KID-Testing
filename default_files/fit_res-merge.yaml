@@ -20,9 +20,6 @@ ATTS : "all"
 KIDS : "all"
 # Number of repeats
 SAMPLES : "all"
-# Pre-overdriven attenuations. 
-# Previous attenuation to the overdriven point
-ATT_OVRDRN : []
 
 # T A S K S   D E F I N I T I O N
 # ---------------------------------------------------
@@ -36,7 +33,9 @@ TASKS :
   "2" :
     "name" : "find_overdriven"
     "params": {
-
+      "temp" : 80,
+      "sample" : 0,
+      "thresh" : 0.7
     }
   "3" :
     "name": "merge_vna"

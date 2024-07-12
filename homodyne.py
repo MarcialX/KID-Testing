@@ -96,6 +96,10 @@ class Homodyne:
         expected = kwargs.pop('expected', None)
         # Load saved project
         load_saved = kwargs.pop('load_saved', False)
+        # Additional input attenuation
+        add_in_att = kwargs.pop('add_in_att', 0)
+        # Additional output attenuation
+        add_out_att = kwargs.pop('add_out_att', 0)
         # ----------------------------------------------
 
         # Create a directory for the project
@@ -142,8 +146,8 @@ class Homodyne:
 
         self._create_diry(self.work_dir+self.project_name+'/backup_data')
 
-        self.add_in_atten = 0
-        self.add_out_atten = 0
+        self.add_in_atten = add_in_att
+        self.add_out_atten = add_out_att
 
         self.found_kids = []
 
@@ -606,17 +610,13 @@ class Homodyne:
 
             if k%6 == 0:
                 if fig_cnt >= 0:
-                    self.ax_od = ax 
-                    self.fig_od = fig
-
-                    self._onclick_subplot = self.fig_od.canvas.mpl_connect("button_press_event", self._onclick_subplot_event)
-                    self._keyboard_subplot = self.fig_od.canvas.mpl_connect('key_press_event', self._key_subplot_event)
-                    show()
+                    self._create_od_fig(fig, ax)
 
                 fig, ax = subplots(6, 5)
                 subplots_adjust(left=0.07, right=0.99, top=0.94, bottom=0.07, hspace=0.0, wspace=0.0)
                 
                 self.over_atts_mtx = np.zeros((6,5))
+                self.over_atts_mask = np.zeros((6,5), dtype=bool)
 
                 fig_cnt += 1
                 self.n_fig_od = fig_cnt
@@ -659,6 +659,7 @@ class Homodyne:
 
                     ax[jj, ii].text(np.min(s21.real)-0.25*(np.max(s21.real)-np.min(s21.real)), np.min(s21.imag), attens[idx_map] + ' dB', {'fontsize': text_size, 'color':text_color}, bbox=dict(facecolor=box_color, alpha=0.95))
                     self.over_atts_mtx[jj, ii] = float(attens[idx_map][1:])
+                    self.over_atts_mask[jj, ii] = True
 
                 if jj == 5 or tot_cnt == len(kids)-1:
                     ax[jj, ii].set_xlabel("I [V]")
@@ -668,7 +669,20 @@ class Homodyne:
                 cnt += 1
                 tot_cnt += 1
 
+        self._create_od_fig(fig, ax)
+
         ion()
+
+    def _create_od_fig(self, fig, ax):
+        """
+        Create an overdriven plot.
+        """
+        self.ax_od = ax 
+        self.fig_od = fig
+
+        self._onclick_subplot = self.fig_od.canvas.mpl_connect("button_press_event", self._onclick_subplot_event)
+        self._keyboard_subplot = self.fig_od.canvas.mpl_connect('key_press_event', self._key_subplot_event)
+        show()
 
     def _onclick_subplot_event(self, event):
         """
@@ -677,21 +691,22 @@ class Homodyne:
         for i in range(6):
             for j in range(5):
                 if event.inaxes == self.ax_od[i, j]:
-                    print ("event in ", i, j)
-                    self.update_overdriven_plot(i, j)
-                    self.temp_att[self.n_fig_od*6+i] = self.over_atts_mtx[i, j]
-                    print(self.temp_att)
+                    #print ("event in ", i, j)
+                    if self.over_atts_mask[i, j]:
+                        self.update_overdriven_plot(i, j)
+                        self.temp_att[self.n_fig_od*6+i] = self.over_atts_mtx[i, j]
 
     def update_overdriven_plot(self, i, j):
         """
         Update overdriven plot.
         """
         for m in range(5):
-            if m == j:
-                self.ax_od[i, m].patch.set_facecolor('green')
-            else:
-                self.ax_od[i, m].patch.set_facecolor('blue')
-            self.ax_od[i, m].patch.set_alpha(0.2)
+            if self.over_atts_mask[i, m]:
+                if m == j:
+                    self.ax_od[i, m].patch.set_facecolor('green')
+                else:
+                    self.ax_od[i, m].patch.set_facecolor('blue')
+                self.ax_od[i, m].patch.set_alpha(0.2)
         self.fig_od.canvas.draw_idle()
 
     def _key_subplot_event(self, event):
@@ -706,20 +721,16 @@ class Homodyne:
                 self.fig_od.canvas.mpl_disconnect(self._keyboard_subplot)
                 close(self.fig_od)
 
-                # Save new attenuation ...
-
+                self.overdriven = self.temp_att
                 msg('Changes saved!', 'info')
 
             elif event.key == 'd':
-                #self._freq = self._freq_backup
-                #self._s21 = self._s21_backup
-                #self._peaks = self._peaks_backup
-                #self._flags = self._flags_backup
-                #cla()
-                #self.update_plot(self._freq, self._s21, self._peaks, self._flags)
-                #self._fig.canvas.draw_idle()
-                msg('Undoing changes', 'info')
+                for i in range(6):
+                    self.update_overdriven_plot(i, 2)
+                    self.temp_att[self.n_fig_od*6+i] = self.over_atts_mtx[i, 2]
 
+                #print(self.temp_att)
+                msg('Undoing changes', 'info')
 
     def find_kids(self, f, s21, down_factor=35, baseline_params=(501, 5), Qr_lim=[1500, 150000], Qc_lim=[1000, 150000], inter=True):
         """

@@ -14,3 +14,7 @@ PROJECT_FOLDER : ""
 # No defined additional attenuations
 IN_ADD_ATT : 0
 OUT_ADD_ATT : 0
+
+# Pre-overdriven attenuations. 
+# Previous attenuation to the overdriven point
+ATT_OVRDRN : []

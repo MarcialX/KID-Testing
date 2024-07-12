@@ -36,6 +36,9 @@ TASKS :
   "2" :
     "name" : "find_overdriven"
     "params": {
+      "temp" : 80,
+      "sample" : 0,
+      "thresh" : 0.7
     }  
   "3" :
     "name": "merge_vna"

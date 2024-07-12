@@ -57,7 +57,6 @@ ATTS = tasks_data['ATTS']
 KIDS = tasks_data['KIDS']
 
 SAMPLES = tasks_data['SAMPLES']
-ATT_OVRDRN = tasks_data['ATT_OVRDRN']
 
 LOAD_PROJ = tasks_data['LOAD_PROJ']
 SAVE_PROJ = tasks_data['SAVE_PROJ']
@@ -87,6 +86,9 @@ data_path = gral_params['DATA_FOLDER']
 project_name = gral_params['PROJECT_NAME']
 project_path = gral_params['PROJECT_FOLDER']
 
+atts_overdriven = gral_params['ATT_OVRDRN']
+add_in_atten = gral_params['IN_ADD_ATT']
+add_out_atten = gral_params['OUT_ADD_ATT']
 
 # R U N   T A S K S
 # --------------------------------------------------
@@ -96,7 +98,8 @@ if LOAD_PROJ:
 else: 
     used_project = data_path
 
-h = Homodyne(used_project, work_dir=project_path, proj_name=project_name, load_saved=LOAD_PROJ)
+h = Homodyne(used_project, work_dir=project_path, proj_name=project_name, load_saved=LOAD_PROJ, overdriven=atts_overdriven, \
+            add_in_atten=add_in_atten, add_out_atten=add_out_atten)
 
 TASKS = tasks_data['TASKS']
 
@@ -162,6 +165,30 @@ for s, step in enumerate(TASKS):
 
         if xls_report:
             h.vna_xls_report()
+
+    # ---> Get overdriven attenuations
+    elif task_name == "atts_overdriven":
+
+        ref_temp = task_params['temp']
+        ref_sample = task_params['sample']
+        non_thresh = task_params['thresh']
+
+        h.find_overdriven_atts(temp, sample=ref_sample, thresh=non_thresh)
+
+        # Save atts in params.yaml file
+        with open(project_path+'/'+PARAMS_FILE, 'r') as f:
+            lines = f.readlines()
+            updated_lines = []
+            for line in lines:
+                if "ATTS_OVRDRVN" in line:
+                    line = line[:line.index(":") + 1] + ' "' + str(h.overdriven) + '"\n'
+            
+                updated_lines.append(line)
+
+        with open(project_path+'/'+PARAMS_FILE, 'w') as wf:
+            for line in updated_lines:
+                wf.write(line)
+
 
     # ---> Summary plots pt. 1
     elif task_name == "summary_plots_1":
