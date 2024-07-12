@@ -45,6 +45,9 @@ from astropy.io import fits
 from matplotlib.pyplot import *
 ion()
 
+import matplotlib as mpl
+mpl.rcParams['axes.linewidth'] = 2
+
 from homodyne_funcs import *
 from fit_resonators import *
 
@@ -639,17 +642,17 @@ class Homodyne:
                     f_fit = self.data['vna'][kid][tmp][attens[idx_map]]['fit'][sample]['freq_data']
                     fit_s21 = self.data['vna'][kid][tmp][attens[idx_map]]['fit'][sample]['fit_data']
 
-                    ax[jj, ii].plot(s21.real, s21.imag, 'ro-')
-                    ax[jj, ii].plot(fit_s21.real, fit_s21.imag, 'k')
+                    ax[jj,ii].plot(s21.real, s21.imag, 'ro-')
+                    ax[jj,ii].plot(fit_s21.real, fit_s21.imag, 'k')
 
-                    ax[jj, ii].axis('equal')
+                    ax[jj,ii].axis('equal')
 
                     if i == 2:
-                        ax[jj, ii].patch.set_facecolor('green')
+                        ax[jj,ii].patch.set_facecolor('green')
                     else:
-                        ax[jj, ii].patch.set_facecolor('blue')
+                        ax[jj,ii].patch.set_facecolor('blue')
 
-                    ax[jj, ii].patch.set_alpha(0.2)
+                    ax[jj,ii].patch.set_alpha(0.2)
 
                     #if idx_map == idx:
                     #    text_size = 18
@@ -660,14 +663,14 @@ class Homodyne:
                     text_color = 'white'
                     box_color = 'purple'
 
-                    ax[jj, ii].text(np.min(s21.real)-0.25*(np.max(s21.real)-np.min(s21.real)), np.min(s21.imag), attens[idx_map] + ' dB', {'fontsize': text_size, 'color':text_color}, bbox=dict(facecolor=box_color, alpha=0.95))
-                    self.over_atts_mtx[jj, ii] = float(attens[idx_map][1:])
-                    self.over_atts_mask[jj, ii] = True
+                    ax[jj,ii].text(np.min(s21.real)-0.25*(np.max(s21.real)-np.min(s21.real)), np.min(s21.imag), attens[idx_map] + ' dB', {'fontsize': text_size, 'color':text_color}, bbox=dict(facecolor=box_color, alpha=0.95))
+                    self.over_atts_mtx[jj,ii] = float(attens[idx_map][1:])
+                    self.over_atts_mask[jj,ii] = True
 
                 if jj == 5 or tot_cnt == len(kids)-1:
-                    ax[jj, ii].set_xlabel("I [V]")
+                    ax[jj,ii].set_xlabel("I [V]")
                 if cnt%5 == 0:
-                    ax[jj, ii].set_ylabel(kid+"\nQ [V]")
+                    ax[jj,ii].set_ylabel(kid+"\nQ [V]")
 
                 cnt += 1
                 tot_cnt += 1
@@ -1453,7 +1456,7 @@ class Homodyne:
 
     # S O M E   U S E F U L   P L O T S
     # --------------------------------------------------------------------------
-    def plot_qs_vs_drive_power(self, kid=None, temp=None, atten=None, cmap='jet'):
+    def plot_qs_vs_drive_power(self, kid=None, temp=None, atten=None, cmap='tab10'):
         """
         Generate the plot qi vs drive power.
         Parameters
@@ -1469,7 +1472,8 @@ class Homodyne:
         ----------
         """
 
-        cmap = matplotlib.cm.get_cmap(cmap)
+        ioff()
+        cmap_obj = matplotlib.cm.get_cmap(cmap)
 
         kids = self._get_kids_to_sweep(kid, mode='vna')
 
@@ -1484,6 +1488,7 @@ class Homodyne:
         x = int(np.sqrt(len(n_temps)))
         y = int(len(n_temps)/x)
 
+        rcParams.update({'font.size': 15, 'font.weight': 'bold'})
         fig_qi, ax_qi = subplots(x, y, sharey=True, sharex=True)
         subplots_adjust(left=0.07, right=0.99, top=0.99, bottom=0.07, hspace=0.0, wspace=0.0)
         fig_qc, ax_qc = subplots(x, y, sharey=True, sharex=True)
@@ -1542,15 +1547,16 @@ class Homodyne:
                     lstyle_pointer += 1
 
                 if len(n_temps) == 1:
-                    """
-                    ax_qi.errorbar(atts_num, qi, yerr=qi_err, color=cmap(norm_color(k)), marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
-                    ax_qi.plot(atts_num, qi, 's', label=kid, color=cmap(norm_color(k)), linestyle=lstyle[lstyle_pointer])
 
-                    ax_qc.errorbar(atts_num, qc, yerr=qc_err, color=cmap(norm_color(k)), marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
-                    ax_qc.plot(atts_num, qc, '^', label=kid, color=cmap(norm_color(k)), linestyle=lstyle[lstyle_pointer])
+                    ax_qi.errorbar(atts_num, qi, yerr=qi_err, color=cmap_obj(norm_color(k)), marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
+                    ax_qi.plot(atts_num, qi, 's', label=kid, color=cmap_obj(norm_color(k)), linestyle=lstyle[lstyle_pointer])
 
-                    ax_qr.errorbar(atts_num, qr, yerr=qr_err, color=cmap(norm_color(k)), marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
-                    ax_qr.plot(atts_num, qr, 'o', label=kid, color=cmap(norm_color(k)), linestyle=lstyle[lstyle_pointer])
+                    ax_qc.errorbar(atts_num, qc, yerr=qc_err, color=cmap_obj(norm_color(k)), marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
+                    ax_qc.plot(atts_num, qc, '^', label=kid, color=cmap_obj(norm_color(k)), linestyle=lstyle[lstyle_pointer])
+
+                    ax_qr.errorbar(atts_num, qr, yerr=qr_err, color=cmap_obj(norm_color(k)), marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
+                    ax_qr.plot(atts_num, qr, 'o', label=kid, color=cmap_obj(norm_color(k)), linestyle=lstyle[lstyle_pointer])
+
                     """
                     #ax_qi.errorbar(atts_num, qi, yerr=qi_err, marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
                     ax_qi.plot(atts_num, qi, 's', label=kid,  linestyle=lstyle[lstyle_pointer])
@@ -1560,42 +1566,43 @@ class Homodyne:
 
                     #ax_qr.errorbar(atts_num, qr, yerr=qr_err, marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
                     ax_qr.plot(atts_num, qr, 'o', label=kid,  linestyle=lstyle[lstyle_pointer])
-
+                    """
+                    
                 else:
-                    ax_qi[j, i].errorbar(atts_num, qi, yerr=qi_err, color=cmap(norm_color(k)), marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
-                    ax_qi[j, i].plot(atts_num, qi, 's', label=kid, color=cmap(norm_color(k)), linestyle=lstyle[lstyle_pointer])
+                    ax_qi[j, i].errorbar(atts_num, qi, yerr=qi_err, color=cmap_obj(norm_color(k)), marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
+                    ax_qi[j, i].plot(atts_num, qi, 's', label=kid, color=cmap_obj(norm_color(k)), linestyle=lstyle[lstyle_pointer])
 
-                    ax_qc[j, i].errorbar(atts_num, qc, yerr=qc_err, color=cmap(norm_color(k)), marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
-                    ax_qc[j, i].plot(atts_num, qc, '^', label=kid, color=cmap(norm_color(k)), linestyle=lstyle[lstyle_pointer])
+                    ax_qc[j, i].errorbar(atts_num, qc, yerr=qc_err, color=cmap_obj(norm_color(k)), marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
+                    ax_qc[j, i].plot(atts_num, qc, '^', label=kid, color=cmap_obj(norm_color(k)), linestyle=lstyle[lstyle_pointer])
 
-                    ax_qr[j, i].errorbar(atts_num, qr, yerr=qr_err, color=cmap(norm_color(k)), marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
-                    ax_qr[j, i].plot(atts_num, qr, 'o', label=kid, color=cmap(norm_color(k)), linestyle=lstyle[lstyle_pointer])
+                    ax_qr[j, i].errorbar(atts_num, qr, yerr=qr_err, color=cmap_obj(norm_color(k)), marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
+                    ax_qr[j, i].plot(atts_num, qr, 'o', label=kid, color=cmap_obj(norm_color(k)), linestyle=lstyle[lstyle_pointer])
 
             if i == 0:
                 if len(n_temps) == 1:
-                    ax_qi.set_ylabel('Qi')
-                    ax_qc.set_ylabel('Qc')
-                    ax_qr.set_ylabel('Qr')
+                    ax_qi.set_ylabel('Qi', fontsize=18, weight='bold')
+                    ax_qc.set_ylabel('Qc', fontsize=18, weight='bold')
+                    ax_qr.set_ylabel('Qr', fontsize=18, weight='bold')
 
                     ax_qi.grid(True, which="both", ls="-")
                     ax_qc.grid(True, which="both", ls="-")
                     ax_qr.grid(True, which="both", ls="-")
 
                 else:
-                    ax_qi[j, i].set_ylabel('Qi')
-                    ax_qc[j, i].set_ylabel('Qc')
-                    ax_qr[j, i].set_ylabel('Qr')
+                    ax_qi[j, i].set_ylabel('Qi', fontsize=18, weight='bold')
+                    ax_qc[j, i].set_ylabel('Qc', fontsize=18, weight='bold')
+                    ax_qr[j, i].set_ylabel('Qr', fontsize=18, weight='bold')
 
             if j == y-1:
                 if len(n_temps) == 1:
-                    ax_qi.set_xlabel('Drive power [dB]')
-                    ax_qc.set_xlabel('Drive power [dB]')
-                    ax_qr.set_xlabel('Drive power [dB]')
+                    ax_qi.set_xlabel('Drive power [dB]', fontsize=18, weight='bold')
+                    ax_qc.set_xlabel('Drive power [dB]', fontsize=18, weight='bold')
+                    ax_qr.set_xlabel('Drive power [dB]', fontsize=18, weight='bold')
 
                 else:
-                    ax_qi[j, i].set_xlabel('Drive power [dB]')
-                    ax_qc[j, i].set_xlabel('Drive power [dB]')
-                    ax_qr[j, i].set_xlabel('Drive power [dB]')
+                    ax_qi[j, i].set_xlabel('Drive power [dB]', fontsize=18, weight='bold')
+                    ax_qc[j, i].set_xlabel('Drive power [dB]', fontsize=18, weight='bold')
+                    ax_qr[j, i].set_xlabel('Drive power [dB]', fontsize=18, weight='bold')
 
                 if i == x-1:
                     if len(n_temps) == 1:
@@ -1608,6 +1615,8 @@ class Homodyne:
                         ax_qr[j, i].legend(ncol=2)
 
             t += 1
+
+        show()
 
     def vna_xls_report(self, name=None):
         """

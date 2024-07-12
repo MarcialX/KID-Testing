@@ -31,18 +31,11 @@ TASKS :
       "type" : "vna"
     }
   "2" :
-    "name" : "find_overdriven"
-    "params": {
-      "temp" : 80,
-      "sample" : 0,
-      "thresh" : 0.7
-    }
-  "3" :
     "name": "merge_vna"
     "params": {
       "xls_report" : True
     }
-  "4" :
+  "3" :
     "name": "summary_plots_1"
     "params": {
       "Q_vs_pwr": True

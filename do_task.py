@@ -199,7 +199,7 @@ for s, step in enumerate(TASKS):
 
         # Quality factors vs drive power
         q_vs_pwr = task_params['Q_vs_pwr']
-        h.plot_qs_vs_drive_power(kids, temps, atts, samples)
+        h.plot_qs_vs_drive_power(kids, temps, atts)
 
 
 
