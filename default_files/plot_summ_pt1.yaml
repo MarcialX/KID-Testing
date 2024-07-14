@@ -44,8 +44,12 @@ TASKS :
       "s21": {
         "sample": 0,
         "data_source": "vna",
-        "cmap": "viridis",
-        "over_attens": False
+        "over_attens": True
+      },
+      "s21_per_kid":{
+        "kids": None,
+        "fit": True,
+        "data_source": "vna"
       }
     }
  

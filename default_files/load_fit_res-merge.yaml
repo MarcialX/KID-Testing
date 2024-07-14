@@ -54,6 +54,9 @@ TASKS :
         "over_attens": True
       },
       "s21_per_kid":{
-
+        "kids": None,
+        "sample": 0,
+        "fit": False,
+        "data_source": "vna"
       }
     }

@@ -226,8 +226,16 @@ for s, step in enumerate(TASKS):
                 h.plot_all_s21_kids(kids, temps, atts, **the_args)
 
             elif name == 's21_per_kid':
+                # Plot all the S21 for all the KIDs
+                for p in plot_params.keys():
+                    if p == 'sample':
+                        the_args['sample'] = plot_params['sample']
+                    elif p == 'fit':
+                        the_args['fit'] = plot_params['fit']            
+                    elif p == 'data_source':
+                        the_args['data_source'] = plot_params['data_source']
 
-                h.plot_s21_kid(0)
+                h.plot_s21_kid(kids, temps, atts, **the_args)
 
 
 

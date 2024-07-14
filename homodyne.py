@@ -2022,7 +2022,7 @@ class Homodyne:
 
         # Save figures
         if fig_name is None:
-            fig_name = 'S21_per_kid.png'
+            fig_name = 'S21_per_kid'
         fig.savefig(self.work_dir+self.project_name+'/fit_res_results/summary_plots/'+fig_name+'.png')
 
     def plot_s21_kid(self, kid, temp=None, atten=None, sample=0, data_source='vna', fit=False):
@@ -2052,7 +2052,8 @@ class Homodyne:
         kids = self._get_kids_to_sweep(kid)
         for kid in kids:
 
-            figure(kid)
+            fig, axs = subplots(1, 2, figsize=(20,12))
+            subplots_adjust(left=0.05, right=0.99, top=0.97, bottom=0.08, wspace=0.12)
             msg(kid, 'info')
 
             temps = self._get_temps_to_sweep(temp, kid)
@@ -2061,7 +2062,6 @@ class Homodyne:
             for t, temp in enumerate(temps):
 
                 attens = self._get_atten_to_sweep(atten, temp, kid)
-
                 if len(temps) > 1:
                     alphas = np.linspace(1.0, 0.3, len(attens))
                     norm_color = matplotlib.colors.Normalize(vmin=0, vmax=len(temps))
@@ -2072,54 +2072,56 @@ class Homodyne:
                 else:
                     sweep_case = 3
 
-                for a, atten in enumerate(attens):
+                for a, att in enumerate(attens):
                     try:
                         if sweep_case == 1:
                             alpha = alphas[a]
                             single_color = cmap(norm_color(t))
                             plot_title = kid
-                            curve_label = temp+'-'+atten
+                            curve_label = temp+'-'+att
                         elif sweep_case == 2:
                             alpha = 1.0
                             single_color = cmap(norm_color(a))
                             plot_title = kid+'-'+temp
-                            curve_label = atten
+                            curve_label = att
                         else:
                             alpha = 1.0
                             single_color = 'r'
-                            plot_title = kid+'-'+temp+'-'+atten
+                            plot_title = kid+'-'+temp+'-'+att
                             curve_label = plot_title
 
                         if data_source == 'vna':
-                            f, s21 = self.data['vna'][kid][temp][atten]['data'][sample]
+                            f, s21 = self.data['vna'][kid][temp][att]['data'][sample]
                         elif data_source == 'homo':
-                            f = self.data['ts'][kid][temp][atten]['f']
-                            s21 = self.data['ts'][kid][temp][atten]['s21']
+                            f = self.data['ts'][kid][temp][att]['f']
+                            s21 = self.data['ts'][kid][temp][att]['s21']
 
-                        subplot(121)
-                        plot(f/1e6, 20*np.log10(np.abs(s21)), color=single_color, alpha=alpha, lw=1.75 )
-                        if fit and 'fit' in self.data['vna'][kid][temp][atten]:
-                            f_fit = self.data['vna'][kid][temp][atten]['fit']['freq_data']
-                            s21_fit = self.data['vna'][kid][temp][atten]['fit']['fit_data']
-                            plot(f_fit/1e6, 20*np.log10(np.abs(s21_fit)), '-', color='k', lw=1.25 )
-                        title(plot_title)
-                        xlabel('Frequency [MHz]')
-                        ylabel('S21 [dB]')
+                        axs[0].plot(f/1e6, 20*np.log10(np.abs(s21)), color=single_color, alpha=alpha, lw=1.75 )
+                        if fit and 'fit' in self.data['vna'][kid][temp][att]:
+                            f_fit = self.data['vna'][kid][temp][att]['fit'][sample]['freq_data']
+                            s21_fit = self.data['vna'][kid][temp][att]['fit'][sample]['fit_data']
+                            axs[0].plot(f_fit/1e6, 20*np.log10(np.abs(s21_fit)), '-', color='k', lw=1.25 )
+                        axs[0].set_title(plot_title, fontsize=18, weight='bold')
+                        axs[0].set_xlabel('Frequency [MHz]', fontsize=18, weight='bold')
+                        axs[0].set_ylabel('S21 [dB]', fontsize=18, weight='bold')
 
-                        subplot(122)
-                        plot(s21.real, s21.imag, color=single_color, alpha=alpha, label=curve_label, lw=1.75)
-                        if fit and 'fit' in self.data['vna'][kid][temp][atten]:
-                            plot(s21_fit.real, s21_fit.imag, '-', color='k', lw=1.25 )
-                        title(plot_title)
-                        axis('equal')
-                        xlabel('I[V]')
-                        ylabel('Q[V]')
+                        axs[1].plot(s21.real, s21.imag, color=single_color, alpha=alpha, label=curve_label, lw=1.75)
+                        if fit and 'fit' in self.data['vna'][kid][temp][att]:
+                            axs[1].plot(s21_fit.real, s21_fit.imag, '-', color='k', lw=1.25 )
+                        axs[1].set_title(plot_title, fontsize=18, weight='bold')
+                        axs[1].axis('equal')
+                        axs[1].set_xlabel('I[V]', fontsize=18, weight='bold')
+                        axs[1].set_ylabel('Q[V]', fontsize=18, weight='bold')
 
                     except Exception as e:
                         msg('Error plotting data\n'+str(e), 'warn')
-        legend()
 
-        show()
+                axs[1].legend()
+                show()
+
+                # Save figures
+                fig_name = 'S21_'+plot_title
+                fig.savefig(self.work_dir+self.project_name+'/fit_res_results/summary_plots/'+fig_name+'.png')
 
     def get_sweeps_from_vna(self, temp, atten, thresh=1e5):
         """
