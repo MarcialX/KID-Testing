@@ -111,7 +111,8 @@ for s, step in enumerate(TASKS):
     # Task name
     task_name = TASKS[step]['name']
     # Task parameters
-    task_params = TASKS[step]['params']
+    if 'params' in TASKS[step]:
+        task_params = TASKS[step]['params']
 
     print("T A S K : ", task_name)
 
@@ -197,9 +198,36 @@ for s, step in enumerate(TASKS):
     # ---> Summary plots pt. 1
     elif task_name == "summary_plots_1":
 
-        # Quality factors vs drive power
-        q_vs_pwr = task_params['Q_vs_pwr']
-        h.plot_qs_vs_drive_power(kids, temps, atts)
+        plot_name = TASKS[step]['plot']
+        for name in plot_name:
+            # Get params
+            the_args = {}
+            plot_params = plot_name[name]
+            if name == 'Q_vs_pwr':
+                # Quality factors vs drive power
+                if 'cmap' in plot_params:
+                    the_args['cmap'] = plot_params['cmap']
+                h.plot_qs_vs_drive_power(kids, temps, atts, **the_args)
+
+            elif name == 's21':
+                # Plot all the S21 for all the KIDs
+                for p in plot_params.keys():
+                    if p == 'sample':
+                        the_args['sample'] = plot_params['sample']
+                    elif p == 'cmap':
+                        the_args['cmap'] = plot_params['cmap']
+                    elif p == 'fig_name':
+                        the_args['fig_name'] = plot_params['fig_name']        
+                    elif p == 'data_source':
+                        the_args['data_source'] = plot_params['data_source']   
+                    elif p == 'over_attens':
+                        the_args['over_attens'] = plot_params['over_attens']   
+
+                h.plot_all_s21_kids(kids, temps, atts, **the_args)
+
+            elif name == 's21_per_kid':
+
+                h.plot_s21_kid(0)
 
 
 

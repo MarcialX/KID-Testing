@@ -1454,170 +1454,6 @@ class Homodyne:
                 print('Fail loading '+f)
                 print(str(e))
 
-    # S O M E   U S E F U L   P L O T S
-    # --------------------------------------------------------------------------
-    def plot_qs_vs_drive_power(self, kid=None, temp=None, atten=None, cmap='tab10'):
-        """
-        Generate the plot qi vs drive power.
-        Parameters
-        ----------
-        kid : int/list/array
-            KID IDs. If 'None' take all the resonators available.
-        temp : int/list/array
-            Define the temperature. If 'None' take all the temperatures available.
-        atten : int/list/array
-            Define the attenuations. If 'None' take all the attenuations available.
-        cmap : string
-            Colormap.
-        ----------
-        """
-
-        ioff()
-        cmap_obj = matplotlib.cm.get_cmap(cmap)
-
-        kids = self._get_kids_to_sweep(kid, mode='vna')
-
-        temporal_temps = []
-        join_temps = []
-        for kid in kids:
-            join_temps.append(self._get_temps_to_sweep(temp, kid, mode='vna'))
-            temporal_temps.append(len(self._get_temps_to_sweep(temp, kid, mode='vna')))
-
-        n_temps = join_temps[np.argmax(temporal_temps)]
-
-        x = int(np.sqrt(len(n_temps)))
-        y = int(len(n_temps)/x)
-
-        rcParams.update({'font.size': 15, 'font.weight': 'bold'})
-        fig_qi, ax_qi = subplots(x, y, sharey=True, sharex=True)
-        subplots_adjust(left=0.07, right=0.99, top=0.99, bottom=0.07, hspace=0.0, wspace=0.0)
-        fig_qc, ax_qc = subplots(x, y, sharey=True, sharex=True)
-        subplots_adjust(left=0.07, right=0.99, top=0.99, bottom=0.07, hspace=0.0, wspace=0.0)
-        fig_qr, ax_qr = subplots(x, y, sharey=True, sharex=True)
-        subplots_adjust(left=0.07, right=0.99, top=0.99, bottom=0.07, hspace=0.0, wspace=0.0)
-
-        for t, tmp in enumerate(n_temps):
-
-            i = t%y
-            j = int(t/y)
-
-            lstyle_pointer = 0
-            norm_color = matplotlib.colors.Normalize(vmin=0, vmax=len(kids))
-            for k, kid in enumerate(kids):
-                print(kid)
-                k2 = int(kid[1:])
-                attens = self._get_atten_to_sweep(atten, tmp, kid, mode='vna')
-
-                atts_num = []
-                qi, qc, qr = [], [], []
-                qi_err, qc_err, qr_err = [], [], []
-                for att in attens:
-                    try:
-                        if float(att[1:]) >= self.overdriven[k2]:
-                            if not self.data['vna'][kid][tmp][att]['fit']['Qi_err'] is None:
-                                print(' ->'+att)
-
-                                #if (self.data['vna'][kid][tmp][att]['fit']['Qi_err']/self.data['vna'][kid][tmp][att]['fit']['Qi']) < 0.1:
-
-                                # Get the attenuations
-                                extra_att = self.data['vna'][kid][tmp][att]['header'][0]['ATT_UC'] + \
-                                            self.data['vna'][kid][tmp][att]['header'][0]['ATT_C'] + \
-                                            self.data['vna'][kid][tmp][att]['header'][0]['ATT_RT']
-
-                                #print(self.data['vna'][kid][tmp][att]['header'][0]['ATT_UC'])
-                                #print(self.data['vna'][kid][tmp][att]['header'][0]['ATT_C'])
-                                #print(self.data['vna'][kid][tmp][att]['header'][0]['ATT_RT'])
-
-                                atts_num.append(-1*(float(att[1:])+extra_att+self.add_in_atten) )
-
-                                # Get Qs errors
-                                qi_err.append(self.data['vna'][kid][tmp][att]['fit']['Qi_err'])
-                                qc_err.append(self.data['vna'][kid][tmp][att]['fit']['Qc_err'])
-                                qr_err.append(self.data['vna'][kid][tmp][att]['fit']['Qr_err'])
-
-                                # Get Qs
-                                qi.append(self.data['vna'][kid][tmp][att]['fit']['Qi'])
-                                qc.append(self.data['vna'][kid][tmp][att]['fit']['Qc'])
-                                qr.append(self.data['vna'][kid][tmp][att]['fit']['Qr'])
-
-                    except Exception as e:
-                        print(att+' not available\n'+str(e))
-
-                if k%10 == 0:
-                    lstyle_pointer += 1
-
-                if len(n_temps) == 1:
-
-                    ax_qi.errorbar(atts_num, qi, yerr=qi_err, color=cmap_obj(norm_color(k)), marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
-                    ax_qi.plot(atts_num, qi, 's', label=kid, color=cmap_obj(norm_color(k)), linestyle=lstyle[lstyle_pointer])
-
-                    ax_qc.errorbar(atts_num, qc, yerr=qc_err, color=cmap_obj(norm_color(k)), marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
-                    ax_qc.plot(atts_num, qc, '^', label=kid, color=cmap_obj(norm_color(k)), linestyle=lstyle[lstyle_pointer])
-
-                    ax_qr.errorbar(atts_num, qr, yerr=qr_err, color=cmap_obj(norm_color(k)), marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
-                    ax_qr.plot(atts_num, qr, 'o', label=kid, color=cmap_obj(norm_color(k)), linestyle=lstyle[lstyle_pointer])
-
-                    """
-                    #ax_qi.errorbar(atts_num, qi, yerr=qi_err, marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
-                    ax_qi.plot(atts_num, qi, 's', label=kid,  linestyle=lstyle[lstyle_pointer])
-
-                    #ax_qc.errorbar(atts_num, qc, yerr=qc_err, marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
-                    ax_qc.plot(atts_num, qc, '^', label=kid,  linestyle=lstyle[lstyle_pointer])
-
-                    #ax_qr.errorbar(atts_num, qr, yerr=qr_err, marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
-                    ax_qr.plot(atts_num, qr, 'o', label=kid,  linestyle=lstyle[lstyle_pointer])
-                    """
-                    
-                else:
-                    ax_qi[j, i].errorbar(atts_num, qi, yerr=qi_err, color=cmap_obj(norm_color(k)), marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
-                    ax_qi[j, i].plot(atts_num, qi, 's', label=kid, color=cmap_obj(norm_color(k)), linestyle=lstyle[lstyle_pointer])
-
-                    ax_qc[j, i].errorbar(atts_num, qc, yerr=qc_err, color=cmap_obj(norm_color(k)), marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
-                    ax_qc[j, i].plot(atts_num, qc, '^', label=kid, color=cmap_obj(norm_color(k)), linestyle=lstyle[lstyle_pointer])
-
-                    ax_qr[j, i].errorbar(atts_num, qr, yerr=qr_err, color=cmap_obj(norm_color(k)), marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
-                    ax_qr[j, i].plot(atts_num, qr, 'o', label=kid, color=cmap_obj(norm_color(k)), linestyle=lstyle[lstyle_pointer])
-
-            if i == 0:
-                if len(n_temps) == 1:
-                    ax_qi.set_ylabel('Qi', fontsize=18, weight='bold')
-                    ax_qc.set_ylabel('Qc', fontsize=18, weight='bold')
-                    ax_qr.set_ylabel('Qr', fontsize=18, weight='bold')
-
-                    ax_qi.grid(True, which="both", ls="-")
-                    ax_qc.grid(True, which="both", ls="-")
-                    ax_qr.grid(True, which="both", ls="-")
-
-                else:
-                    ax_qi[j, i].set_ylabel('Qi', fontsize=18, weight='bold')
-                    ax_qc[j, i].set_ylabel('Qc', fontsize=18, weight='bold')
-                    ax_qr[j, i].set_ylabel('Qr', fontsize=18, weight='bold')
-
-            if j == y-1:
-                if len(n_temps) == 1:
-                    ax_qi.set_xlabel('Drive power [dB]', fontsize=18, weight='bold')
-                    ax_qc.set_xlabel('Drive power [dB]', fontsize=18, weight='bold')
-                    ax_qr.set_xlabel('Drive power [dB]', fontsize=18, weight='bold')
-
-                else:
-                    ax_qi[j, i].set_xlabel('Drive power [dB]', fontsize=18, weight='bold')
-                    ax_qc[j, i].set_xlabel('Drive power [dB]', fontsize=18, weight='bold')
-                    ax_qr[j, i].set_xlabel('Drive power [dB]', fontsize=18, weight='bold')
-
-                if i == x-1:
-                    if len(n_temps) == 1:
-                        ax_qi.legend(ncol=2)
-                        ax_qc.legend(ncol=2)
-                        ax_qr.legend(ncol=2)
-                    else:
-                        ax_qi[j, i].legend(ncol=2)
-                        ax_qc[j, i].legend(ncol=2)
-                        ax_qr[j, i].legend(ncol=2)
-
-            t += 1
-
-        show()
-
     def vna_xls_report(self, name=None):
         """
         Create the report of results from the VNA measurements.
@@ -1739,6 +1575,191 @@ class Homodyne:
             worksheet.write_formula(len(attens)+11, 3, '=STDEV('+qr_max_str[:-1]+')')
 
         workbook.close()
+
+    # S O M E   U S E F U L   P L O T S
+    # --------------------------------------------------------------------------
+    def plot_qs_vs_drive_power(self, kid=None, temp=None, atten=None, cmap='tab10'):
+        """
+        Generate the plot qi vs drive power.
+        Parameters
+        ----------
+        kid : int/list/array
+            KID IDs. If 'None' take all the resonators available.
+        temp : int/list/array
+            Define the temperature. If 'None' take all the temperatures available.
+        atten : int/list/array
+            Define the attenuations. If 'None' take all the attenuations available.
+        cmap : string
+            Colormap.
+        ----------
+        """
+
+        ioff()
+        cmap_obj = matplotlib.cm.get_cmap(cmap)
+
+        kids = self._get_kids_to_sweep(kid, mode='vna')
+
+        temporal_temps = []
+        join_temps = []
+        for kid in kids:
+            join_temps.append(self._get_temps_to_sweep(temp, kid, mode='vna'))
+            temporal_temps.append(len(self._get_temps_to_sweep(temp, kid, mode='vna')))
+
+        n_temps = join_temps[np.argmax(temporal_temps)]
+
+        x = int(np.sqrt(len(n_temps)))
+        y = int(len(n_temps)/x)
+
+        rcParams.update({'font.size': 15, 'font.weight': 'bold'})
+        fig_qi, ax_qi = subplots(x, y, sharey=True, sharex=True, figsize=(20,12))
+        subplots_adjust(left=0.06, right=0.99, top=0.97, bottom=0.07, hspace=0.0, wspace=0.0)
+        fig_qc, ax_qc = subplots(x, y, sharey=True, sharex=True, figsize=(20,12))
+        subplots_adjust(left=0.06, right=0.99, top=0.97, bottom=0.07, hspace=0.0, wspace=0.0)
+        fig_qr, ax_qr = subplots(x, y, sharey=True, sharex=True, figsize=(20,12))
+        subplots_adjust(left=0.06, right=0.99, top=0.97, bottom=0.07, hspace=0.0, wspace=0.0)
+
+        for t, tmp in enumerate(n_temps):
+
+            i = t%y
+            j = int(t/y)
+
+            lstyle_pointer = 0
+            
+            flag_color_loop = False
+            if cmap in ['tab10', 'tab20']:
+                flag_color_loop = True
+
+            if flag_color_loop:
+                vmax_color = int(cmap[-2:])
+            else:
+                vmax_color = len(kids)
+
+            norm_color = matplotlib.colors.Normalize(vmin=0, vmax=vmax_color)
+
+            for k, kid in enumerate(kids):
+
+                k2 = int(kid[1:])
+                attens = self._get_atten_to_sweep(atten, tmp, kid, mode='vna')
+
+                atts_num = []
+                qi, qc, qr = [], [], []
+                qi_err, qc_err, qr_err = [], [], []
+                for att in attens:
+                    try:
+                        if float(att[1:]) >= self.overdriven[k2]:
+                            if not self.data['vna'][kid][tmp][att]['fit']['Qi_err'] is None:
+                                print(' ->'+att)
+
+                                #if (self.data['vna'][kid][tmp][att]['fit']['Qi_err']/self.data['vna'][kid][tmp][att]['fit']['Qi']) < 0.1:
+
+                                # Get the attenuations
+                                extra_att = self.data['vna'][kid][tmp][att]['header'][0]['ATT_UC'] + \
+                                            self.data['vna'][kid][tmp][att]['header'][0]['ATT_C'] + \
+                                            self.data['vna'][kid][tmp][att]['header'][0]['ATT_RT']
+
+                                #print(self.data['vna'][kid][tmp][att]['header'][0]['ATT_UC'])
+                                #print(self.data['vna'][kid][tmp][att]['header'][0]['ATT_C'])
+                                #print(self.data['vna'][kid][tmp][att]['header'][0]['ATT_RT'])
+
+                                atts_num.append(-1*(float(att[1:])+extra_att+self.add_in_atten) )
+
+                                # Get Qs errors
+                                qi_err.append(self.data['vna'][kid][tmp][att]['fit']['Qi_err'])
+                                qc_err.append(self.data['vna'][kid][tmp][att]['fit']['Qc_err'])
+                                qr_err.append(self.data['vna'][kid][tmp][att]['fit']['Qr_err'])
+
+                                # Get Qs
+                                qi.append(self.data['vna'][kid][tmp][att]['fit']['Qi'])
+                                qc.append(self.data['vna'][kid][tmp][att]['fit']['Qc'])
+                                qr.append(self.data['vna'][kid][tmp][att]['fit']['Qr'])
+
+                    except Exception as e:
+                        print(att+' not available\n'+str(e))
+
+                if k%10 == 0:
+                    lstyle_pointer += 1
+
+                if flag_color_loop:
+                    k_color = k%int(cmap[-2:])
+                else:
+                    k_color = k
+
+                if len(n_temps) == 1:
+
+                    ax_qi.errorbar(atts_num, qi, yerr=qi_err, color=cmap_obj(norm_color(k_color)), marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
+                    ax_qi.plot(atts_num, qi, 's', label=kid, color=cmap_obj(norm_color(k_color)), linestyle=lstyle[lstyle_pointer])
+
+                    ax_qc.errorbar(atts_num, qc, yerr=qc_err, color=cmap_obj(norm_color(k_color)), marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
+                    ax_qc.plot(atts_num, qc, '^', label=kid, color=cmap_obj(norm_color(k_color)), linestyle=lstyle[lstyle_pointer])
+
+                    ax_qr.errorbar(atts_num, qr, yerr=qr_err, color=cmap_obj(norm_color(k_color)), marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
+                    ax_qr.plot(atts_num, qr, 'o', label=kid, color=cmap_obj(norm_color(k_color)), linestyle=lstyle[lstyle_pointer])
+
+                    """
+                    #ax_qi.errorbar(atts_num, qi, yerr=qi_err, marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
+                    ax_qi.plot(atts_num, qi, 's', label=kid,  linestyle=lstyle[lstyle_pointer])
+
+                    #ax_qc.errorbar(atts_num, qc, yerr=qc_err, marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
+                    ax_qc.plot(atts_num, qc, '^', label=kid,  linestyle=lstyle[lstyle_pointer])
+
+                    #ax_qr.errorbar(atts_num, qr, yerr=qr_err, marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
+                    ax_qr.plot(atts_num, qr, 'o', label=kid,  linestyle=lstyle[lstyle_pointer])
+                    """
+                    
+                else:
+                    ax_qi[j, i].errorbar(atts_num, qi, yerr=qi_err, color=cmap_obj(norm_color(k_color)), marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
+                    ax_qi[j, i].plot(atts_num, qi, 's', label=kid, color=cmap_obj(norm_color(k_color)), linestyle=lstyle[lstyle_pointer])
+
+                    ax_qc[j, i].errorbar(atts_num, qc, yerr=qc_err, color=cmap_obj(norm_color(k_color)), marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
+                    ax_qc[j, i].plot(atts_num, qc, '^', label=kid, color=cmap_obj(norm_color(k_color)), linestyle=lstyle[lstyle_pointer])
+
+                    ax_qr[j, i].errorbar(atts_num, qr, yerr=qr_err, color=cmap_obj(norm_color(k_color)), marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
+                    ax_qr[j, i].plot(atts_num, qr, 'o', label=kid, color=cmap_obj(norm_color(k_color)), linestyle=lstyle[lstyle_pointer])
+
+            if i == 0:
+                if len(n_temps) == 1:
+                    ax_qi.set_ylabel('Qi', fontsize=18, weight='bold')
+                    ax_qc.set_ylabel('Qc', fontsize=18, weight='bold')
+                    ax_qr.set_ylabel('Qr', fontsize=18, weight='bold')
+
+                    ax_qi.grid(True, which="both", ls="-")
+                    ax_qc.grid(True, which="both", ls="-")
+                    ax_qr.grid(True, which="both", ls="-")
+
+                else:
+                    ax_qi[j, i].set_ylabel('Qi', fontsize=18, weight='bold')
+                    ax_qc[j, i].set_ylabel('Qc', fontsize=18, weight='bold')
+                    ax_qr[j, i].set_ylabel('Qr', fontsize=18, weight='bold')
+
+            if j == y-1:
+                if len(n_temps) == 1:
+                    ax_qi.set_xlabel('Drive power [dB]', fontsize=18, weight='bold')
+                    ax_qc.set_xlabel('Drive power [dB]', fontsize=18, weight='bold')
+                    ax_qr.set_xlabel('Drive power [dB]', fontsize=18, weight='bold')
+
+                else:
+                    ax_qi[j, i].set_xlabel('Drive power [dB]', fontsize=18, weight='bold')
+                    ax_qc[j, i].set_xlabel('Drive power [dB]', fontsize=18, weight='bold')
+                    ax_qr[j, i].set_xlabel('Drive power [dB]', fontsize=18, weight='bold')
+
+                if i == x-1:
+                    if len(n_temps) == 1:
+                        ax_qi.legend(ncol=2)
+                        ax_qc.legend(ncol=2)
+                        ax_qr.legend(ncol=2)
+                    else:
+                        ax_qi[j, i].legend(ncol=2)
+                        ax_qc[j, i].legend(ncol=2)
+                        ax_qr[j, i].legend(ncol=2)
+
+            t += 1
+
+        show()
+
+        # Save figures
+        fig_qr.savefig(self.work_dir+self.project_name+'/fit_res_results/summary_plots/Qr_vs_power.png')
+        fig_qc.savefig(self.work_dir+self.project_name+'/fit_res_results/summary_plots/Qc_vs_power.png')
+        fig_qi.savefig(self.work_dir+self.project_name+'/fit_res_results/summary_plots/Qi_vs_power.png')
 
     def plot_ts_summary(self, kid, temp, atten, ignore=[[0,1], [0]], cmap='viridis'):
         """
@@ -1893,7 +1914,7 @@ class Homodyne:
                 except Exception as e:
                     msg(kid+'-'+tmp+'-'+att+'-'+str(e), 'warn')
 
-    def plot_all_s21_kids(self, kid, temp, atten, sample=0, defined_attens=True, data_source='vna', cmap='viridis'):
+    def plot_all_s21_kids(self, kid, temp, atten, sample=0, over_attens=True, data_source='vna', cmap='viridis', fig_name=None):
         """
         Plot the S21 sweeps of all the detectors.
         Parameters
@@ -1921,81 +1942,88 @@ class Homodyne:
         kids = self._get_kids_to_sweep(kid)
 
         xg = int(np.sqrt(len(kids)))
-        yg = int(len(kids)/xg)
+        yg = int(np.ceil(len(kids)/xg))
 
-        #xg = 3
-        #yg = 6
+        fig, axm = subplots(xg, yg, figsize=(20,12))
+        subplots_adjust(left=0.05, right=0.99, top=0.99, bottom=0.08, hspace=0.15)#, wspace=0.035)
 
-        fig, axm = subplots(xg, yg)
-
-        for k, kid in enumerate(kids):
-
-            msg(kid, 'info')
+        for k in range(xg*yg):
 
             i = k%yg
             j = int(k/yg)
 
-            temps = self._get_temps_to_sweep(temp, kid)
-            norm_color = matplotlib.colors.Normalize(vmin=0, vmax=len(temps))
+            if k < len(kids):
 
-            for t, tm in enumerate(temps):
+                kid = kids[k]
 
-                if defined_attens:
-                    att = atten[k]
-                else:
-                    att = atten
+                temps = self._get_temps_to_sweep(temp, kid)
+                norm_color = matplotlib.colors.Normalize(vmin=0, vmax=len(temps))
 
-                attens = self._get_atten_to_sweep(att, tm, kid)
+                for t, tm in enumerate(temps):
+                    
+                    if over_attens:
+                        att = self.overdriven[k]
+                    else:
+                        att = atten
 
-                if len(temps) > 1:
-                    alphas = np.linspace(1.0, 0.3, len(attens))
-                    norm_color = matplotlib.colors.Normalize(vmin=0, vmax=len(temps))
-                    sweep_case = 1
-                elif len(attens) > 1:
-                    norm_color = matplotlib.colors.Normalize(vmin=0, vmax=len(attens))
-                    sweep_case = 2
-                else:
-                    sweep_case = 3
+                    attens = self._get_atten_to_sweep(att, tm, kid)
 
-                for a, single_atten in enumerate(attens):
-                    try:
-                        if sweep_case == 1:
-                            alpha = alphas[a]
-                            single_color = cmap(norm_color(t))
-                            plot_title = kid
-                            curve_label = tm+'-'+single_atten
-                            curve_label = tm
-                        elif sweep_case == 2:
-                            alpha = 1.0
-                            single_color = cmap(norm_color(a))
-                            plot_title = kid+'-'+tm
-                            curve_label = single_atten
-                        else:
-                            alpha = 1.0
-                            single_color = 'r'
-                            plot_title = kid+'-'+tm+'-'+single_atten
-                            curve_label = plot_title
+                    if len(temps) > 1:
+                        alphas = np.linspace(1.0, 0.3, len(attens))
+                        norm_color = matplotlib.colors.Normalize(vmin=0, vmax=len(temps))
+                        sweep_case = 1
+                    elif len(attens) > 1:
+                        norm_color = matplotlib.colors.Normalize(vmin=0, vmax=len(attens))
+                        sweep_case = 2
+                    else:
+                        sweep_case = 3
 
-                        if data_source == 'vna':
-                            f, s21 = self.data['vna'][kid][tm][single_atten]['data'][sample]
-                        elif data_source == 'homo':
-                            f = self.data['ts'][kid][tm][single_atten]['f']
-                            s21 = self.data['ts'][kid][tm][single_atten]['s21']
+                    for a, single_atten in enumerate(attens):
+                        try:
+                            if sweep_case == 1:
+                                alpha = alphas[a]
+                                single_color = cmap(norm_color(t))
 
-                        axm[j,i].plot(f/1e6, 20*np.log10(np.abs(s21)), color=single_color, alpha=alpha, lw=1.75, label=tm)
-                        if t == 0 and a == 0:
-                            axm[j,i].text(f[0]/1e6+0.65*(f[-1]-f[0])/1e6, np.min(20*np.log10(np.abs(s21))), kid+'-'+single_atten )
+                            elif sweep_case == 2:
+                                alpha = 1.0
+                                single_color = cmap(norm_color(a))
 
-                        #axm[j,i].set_title(kid)
-                        if i == 0:
-                            axm[j,i].set_ylabel('S21 [dB]')
-                        if j == yg-1:
-                            axm[j,i].set_xlabel('Frequency [MHz]')
-                            if i == xg-1:
-                                axm[j,i].legend(ncol=2)
+                            else:
+                                alpha = 1.0
+                                single_color = 'r'
 
-                    except Exception as e:
-                        msg('Error plotting data\n'+str(e), 'warn')
+                            if data_source == 'vna':
+                                f, s21 = self.data['vna'][kid][tm][single_atten]['data'][sample]
+                            elif data_source == 'homo':
+                                f = self.data['ts'][kid][tm][single_atten]['f']
+                                s21 = self.data['ts'][kid][tm][single_atten]['s21']
+
+                            axm[j,i].plot(f/1e6, 20*np.log10(np.abs(s21)), color=single_color, alpha=alpha, lw=1.75, label=tm)
+                            if t == 0 and a == len(attens)-1:
+                                axm[j,i].text(f[0]/1e6+0.65*(f[-1]-f[0])/1e6, np.min(20*np.log10(np.abs(s21)))+ \
+                                            0.1*(np.max(20*np.log10(np.abs(s21)))-np.min(20*np.log10(np.abs(s21)))), \
+                                            kid+'\n'+single_atten[1:]+'dB', {'fontsize':17, 'color':'blue'})
+
+                            #axm[j,i].set_title(kid)
+                            if i == 0:
+                                axm[j,i].set_ylabel('S21 [dB]', fontsize=18, weight='bold')
+                            if j == xg-1:
+                                axm[j,i].set_xlabel('Frequency [MHz]', fontsize=18, weight='bold')
+                                if i == yg-1:
+                                    axm[j,i].legend(ncol=2)
+
+                        except Exception as e:
+                            msg('Error plotting data\n'+str(e), 'warn')
+
+            else:
+                axm[j,i].axis('off')
+
+        show()
+
+        # Save figures
+        if fig_name is None:
+            fig_name = 'S21_per_kid.png'
+        fig.savefig(self.work_dir+self.project_name+'/fit_res_results/summary_plots/'+fig_name+'.png')
 
     def plot_s21_kid(self, kid, temp=None, atten=None, sample=0, data_source='vna', fit=False):
         """
@@ -2090,6 +2118,8 @@ class Homodyne:
                     except Exception as e:
                         msg('Error plotting data\n'+str(e), 'warn')
         legend()
+
+        show()
 
     def get_sweeps_from_vna(self, temp, atten, thresh=1e5):
         """
@@ -2200,6 +2230,8 @@ class Homodyne:
                 elif isinstance(a, str):
                     if a.startswith('A') and a[1:].replace('.', '', 1).isdigit():
                         attens.append(a)
+        elif isinstance(atten, float):
+            attens = [f'A{atten:.1f}']
         else:
             attens = [atten]
 
