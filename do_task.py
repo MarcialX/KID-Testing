@@ -280,9 +280,43 @@ for s, step in enumerate(TASKS):
 
         h.get_all_psd(kids, temps, atts, **the_args)
 
-
     # ---> Get responsivity
     elif task_name == "responsivity":
+
+        the_args = {}
+        # Plot all the S21 for all the KIDs
+        for p in task_params.keys():
+            if p == 'var':
+                the_args['var'] = task_params['var']
+            elif p == 'temp_conv':
+                the_args['temp_conv'] = task_params['temp_conv']            
+            elif p == 'dims':
+                the_args['dims'] = task_params['dims']
+            elif p == 'from_fit':
+                the_args['from_fit'] = task_params['from_fit']
+            elif p == 'plot_res':
+                the_args['plot_res'] = task_params['plot_res']
+            elif p == 'flag_kid':
+                the_args['flag_kid'] = task_params['flag_kid']
+            elif p == 'data_source':
+                the_args['data_source'] = task_params['data_source']
+            elif p == 'material':
+                the_args['material'] = task_params['material']
+            elif p == 'nu':
+                the_args['nu'] = task_params['nu']
+            elif p == 'sample':
+                the_args['sample'] = task_params['sample']
+            elif p == 'custom':
+                the_args['custom'] = task_params['custom']
+            elif p == 'diry_fits':
+                the_args['diry_fits'] = task_params['diry_fits']
+            elif p == 'method':
+                the_args['method'] = task_params['method']
+
+        h.get_responsivity(kids, **the_args)
+
+    # ---> Get NEP
+    elif task_name == "NEP":
 
         pass
 

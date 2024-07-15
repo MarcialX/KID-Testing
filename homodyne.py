@@ -991,15 +991,13 @@ class Homodyne:
                 for att in attens:
                     self.get_psd_on_off(kid, tmp, att, ignore=ignore, fit=fit_psd, plot_fit=plot_fit)
 
-    def get_responsivity(self, kid, atten, temp_conv='Nqp', material='Al', V=1, nu=35e9, var='fr', sample=0, flag_kid=[], custom=None, data_source='vna', diry_fts='/home/marcial/Homodyne-project/FFT-ANL-SLIM-SO-23', from_fit=False, method='min', plot_res=True):
+    def get_responsivity(self, kid, temp_conv='Nqp', material='Al', dims=[1,1,1], nu=35e9, var='fr', sample=0, flag_kid=[], custom=None, data_source='vna', diry_fts='/home/marcial/Homodyne-project/FFT-ANL-SLIM-SO-23', from_fit=False, method='min', plot_res=True):
         """
         Get responsivity
         Parameters
         ----------
         kid : int, string
             KID IDs. If 'None' it will take all the resonators.
-        atten : string
-            Attenuation. If 'None' it will select all the attenuations.
         temp_conv(opt) : string
             Convert temperature to a defined parameter.
             If 'None', use temperature as itself.
@@ -1037,10 +1035,17 @@ class Homodyne:
         ----------
         """
 
+        ioff()
+
         if from_fit == False and method == 'min':
             if var != 'fr':
                 msg("Only var = 'fr' is valid under these conditions", "fail")
                 return
+
+        # Get total volume
+        V = float(dims[0])*float(dims[1])*float(dims[2]) 
+
+        atten = self.overdriven
 
         lstyle_pointer = 0
 
@@ -1057,7 +1062,9 @@ class Homodyne:
         S = []
         pwrs = []
         if from_fit:
-            figure()
+            rc('font', family='serif', size='16')
+            fig, ax = subplots(1,1, figsize=(15,9))
+            subplots_adjust(left=0.110, right=0.99, top=0.97, bottom=0.07, hspace=0.0, wspace=0.0)
 
         for k, kid in enumerate(kids):
             msg(kid, 'info')
@@ -1151,6 +1158,7 @@ class Homodyne:
                 pwrs.append(power)
 
             except Exception as e:
+                print(e)
                 S.append(None)
                 pwrs.append(None)
 
@@ -1177,10 +1185,10 @@ class Homodyne:
                     lstyle_pointer += 1
                 if var == 'fr':
                     xs_plot = (xs - xs[0])/xs[0]
-                    ylabel('ffs')
+                    ax.set_ylabel('ffs', fontsize=18, weight='bold')
                 else:
                     xs_plot = xs
-                    ylabel(var)
+                    ax.set_ylabel(var, fontsize=18, weight='bold')
 
                 if not np.sum([np.isnan(i) for i in xs_plot]) == len(xs_plot):
 
@@ -1188,18 +1196,30 @@ class Homodyne:
                         color = custom[0][k]
                         mk = custom[1][k]
                         lsty = custom[2][k]
-                        plot(power, xs_plot, label=kid, linestyle=lsty, marker=mk, color=color)
+                        ax.plot(power, xs_plot, label=kid, linestyle=lsty, marker=mk, color=color)
 
                     else:
-                        plot(power, xs_plot, label=kid, linestyle=lstyle[lstyle_pointer], marker=lmarker[lstyle_pointer])
+                        print(power, xs_plot)
+                        ax.plot(power, xs_plot, label=kid, linestyle=lstyle[lstyle_pointer], marker=lmarker[lstyle_pointer])
 
                     if temp_conv == 'power':
-                        xlabel('BB temp [K]')
+                        ax.set_xlabel('BB temp [K]', fontsize=18, weight='bold')
                     elif temp_conv == 'Nqp':
-                        xlabel('Nqp')
-                    legend(ncol=2)
+                        ax.set_xlabel('Nqp', fontsize=18, weight='bold')
+                    ax.legend(ncol=2)
 
-        return S, pwrs
+        if plot_res:
+            show()
+
+            fig.savefig(self.work_dir+self.project_name+'/fit_res_dict/responsivity-'+self.data_type+'.png')
+
+        #np.save(self.work_dir+self.project_name+'/fit_psd_dict/psd-'+name, self.data['ts'][kid][temp][atten]['psd'])
+        #np.save(self.work_dir+self.project_name+'/fit_psd_dict/fit_psd-'+name, self.data['ts'][kid][temp][atten]['fit_psd'])
+
+        np.save(self.work_dir+self.project_name+'/fit_res_dict/responsivity-'+self.data_type, S)
+        np.save(self.work_dir+self.project_name+'/fit_res_dict/responsivity-powers-'+self.data_type, pwrs)
+
+        #return S, pwrs
 
     def calculate_df(self, I, Q, hdr):
         """
@@ -1800,9 +1820,14 @@ class Homodyne:
                     ax_qr[j, i].plot(atts_num, qr, 'o', label=kid, color=cmap_obj(norm_color(k_color)), linestyle=lstyle[lstyle_pointer])
 
             if len(n_temps) > 1:
-                ax_qr[j, i].text(0.7, 0.85, str(int(tmp[1:])) + ' mK', {'fontsize': 15, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_qr[j, i].transAxes,)
-                ax_qc[j, i].text(0.7, 0.85, str(int(tmp[1:])) + ' mK', {'fontsize': 15, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_qc[j, i].transAxes,)
-                ax_qi[j, i].text(0.7, 0.85, str(int(tmp[1:])) + ' mK', {'fontsize': 15, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_qi[j, i].transAxes,)
+                if self.data_type.lower() == 'dark':
+                    subfix = 'mK'
+                elif self.data_type.lower() == 'blackbody':
+                    subfix = 'K'
+
+                ax_qr[j, i].text(0.7, 0.85, str(int(tmp[1:])) + ' '+subfix, {'fontsize': 15, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_qr[j, i].transAxes,)
+                ax_qc[j, i].text(0.7, 0.85, str(int(tmp[1:])) + ' '+subfix, {'fontsize': 15, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_qc[j, i].transAxes,)
+                ax_qi[j, i].text(0.7, 0.85, str(int(tmp[1:])) + ' '+subfix, {'fontsize': 15, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_qi[j, i].transAxes,)
 
             if i == 0:
                 if len(n_temps) == 1:
@@ -2174,13 +2199,13 @@ class Homodyne:
                 norm_color = matplotlib.colors.Normalize(vmin=0, vmax=len(temps))
 
                 attens = self._get_atten_to_sweep(atten, tmp, kid)
-                if len(temps) > 1:
+                if len(attens) > 1:
+                    norm_color = matplotlib.colors.Normalize(vmin=0, vmax=len(attens))
+                    sweep_case = 2                
+                elif len(temps) > 1:
                     alphas = np.linspace(1.0, 0.3, len(attens))
                     norm_color = matplotlib.colors.Normalize(vmin=0, vmax=len(temps))
                     sweep_case = 1
-                elif len(attens) > 1:
-                    norm_color = matplotlib.colors.Normalize(vmin=0, vmax=len(attens))
-                    sweep_case = 2
                 else:
                     sweep_case = 3
 
