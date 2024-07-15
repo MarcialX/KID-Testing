@@ -342,7 +342,7 @@ class Homodyne:
         np.save(self.work_dir+self.proj_name+'/backup_data/'+filename, self.data)
         np.save(self.work_dir+self.proj_name+'/backup_data/data_diry.npy', self.data_diry)
 
-    def fit_vna_resonators(self, kid=None, temp=None, atten=None, sample=0, n=3.5, **kwargs):
+    def fit_vna_resonators(self, kid=None, temp=None, atten=None, complete=True, sample=0, n=3.5, **kwargs):
         """
         Fit the VNA resonators.
         Define a set of data to fit. If none is defined, it will
@@ -388,20 +388,30 @@ class Homodyne:
                 for atten in attens:
                     msg('Fit '+kid, 'info')
 
-                    try:
-                        f_vna, s21_vna = self.data['vna'][kid][temp][atten]['data'][sample]
+                    flag_do_it = False
+                    if not complete:
+                        flag_do_it = True
+                    elif complete and (not ('fit' in self.data['vna'][kid][temp][atten])):
+                        flag_do_it = True
 
-                        p = Process(target=self._fit_res_join, args=(kid, temp, atten, f_vna, s21_vna, n, tau ))
-                        jobs.append(p)
-                        p.start()
+                    if flag_do_it:
+                        try:
+                            f_vna, s21_vna = self.data['vna'][kid][temp][atten]['data'][sample]
 
-                    except KeyError as err:
-                        print(err)
-                        msg('Data not found', 'fail')
+                            p = Process(target=self._fit_res_join, args=(kid, temp, atten, f_vna, s21_vna, n, tau ))
+                            jobs.append(p)
+                            p.start()
 
-                    except Exception as e:
-                        print(e)
-                        msg('Fit is taking too much time...', 'fail')
+                        except KeyError as err:
+                            print(err)
+                            msg('Data not found', 'fail')
+
+                        except Exception as e:
+                            print(e)
+                            msg('Fit is taking too much time...', 'fail')
+                    else:
+                        print('++++++++++++++++++++++')
+                        print(kid+'-'+temp+'-'+atten+' done')
 
         for proc in jobs:
         	proc.join()
@@ -1220,6 +1230,106 @@ class Homodyne:
         np.save(self.work_dir+self.project_name+'/fit_res_dict/responsivity-powers-'+self.data_type, pwrs)
 
         #return S, pwrs
+
+    def get_all_NEP(self, kid, temp, atten, **kwargs):
+        """
+        Get all the NEP(Noise Equivalent Power).
+        """
+
+        # Key arguments
+        # ----------------------------------------------
+        # Timestreams to ignore
+        ignore = kwargs.pop('ignore', [[0,1], [0,1]])
+        # Fit PSD?
+        fit_psd = kwargs.pop('fit_psd', True)
+        # Plot fit results?
+        plot_fit = kwargs.pop('plot_fit', True)
+        # Fixed frequencies
+        fixed_freqs = kwargs.pop('fixed_freqs', [1, 10, 100])
+        # NEP at a given temp
+        fixed_temp = kwargs.pop('fixed_temp', 0)
+        # Frequency width
+        df = kwargs.pop('df', 0.5)
+        # ----------------------------------------------
+
+        NEPs = np.zeros_like(fixed_freqs)
+        kids = self._get_kids_to_sweep(kid, mode='ts')
+
+        # Get responsivity
+        S = np.load(self.work_dir+self.project_name+'/fit_res_dict/responsivity-'+self.data_type)
+        pwrs = np.load(self.work_dir+self.project_name+'/fit_res_dict/responsivity-powers-'+self.data_type)
+
+        rc('font', family='serif', size='16')
+        fig_nep_kids, ax_nep_kids = subplots(1, 1, figsize=(20,12))
+        subplots_adjust(left=0.110, right=0.99, top=0.97, bottom=0.07, hspace=0.0, wspace=0.0)
+
+        for kid in enumerate(kids):
+            
+            k = int(kid[1:])
+            print('***************************************')
+            msg(kid, 'info')
+
+            temps = self._get_temps_to_sweep(temp, kid, mode='ts')
+            for tmp in temps:
+
+                att = self._get_atten_to_sweep(self.overdriven[k], tmp, kid, mode='ts')
+                f_nep, psd_nep = self.data['ts'][kid][temp][att]['fit_psd']['psd']
+
+                # Noise params
+                psd_params = self.data['ts'][kid][temp][atten]['fit_psd']['params']
+                tqp = psd_params['tau']
+
+                # Resonator params
+                f0 = self.data['vna'][kid][temp][atten]['fit']['fr']
+                Qr = self.data['vna'][kid][temp][atten]['fit']['Qr']        
+
+                NEP = self.get_NEP(f_nep, psd_nep, tqp, S[k], Qr, f0)
+
+                for i, fx in enumerate(fixed_freqs):
+                    idx_from = np.where(fx-df > f_nep)[0][0]
+                    idx_to = np.where(fx+df < f_nep)[1][0]
+                    NEPs[i] = np.mean(NEP[idx_from:idx_to])
+
+                np.save(self.work_dir+self.project_name+'/fit_res_dict/nep-'+kid+'-'+temp+'-'+atten, NEP)
+                np.save(self.work_dir+self.project_name+'/fit_res_dict/neps_pts-'+kid+'-'+temp+'-'+atten, [fixed_freqs, NEPs])
+
+            
+
+    def get_NEP(self, f, psd, tqp, S, Qr, f0, **kwargs):
+        """
+        Get the NEP.
+        Parameters
+        ----------
+        f : array
+            frequency
+        psd : array
+            Noise PSD
+        tqp : float
+            Quasiparticle lifetime
+        S : float
+            Responsivity
+        Qr : float
+            Quality factor
+        f0 : float
+            Resonance frequency
+        Delta : float
+            Binding energy
+        ----------
+        """
+
+        # Key arguments
+        # ----------------------------------------------
+        # eta
+        eta = kwargs.pop('eta', 0.6)
+        # ----------------------------------------------
+
+        if self.data_type.lower() == 'dark':
+            NEP = np.sqrt(psd) * (( (eta*tqp/self.Delta)*(np.abs(S)) )**(-1)) * np.sqrt(1 + (2*np.pi*f*tqp)**2 ) * np.sqrt(1 + (2*np.pi*f*Qr/np.pi/f0)**2)
+        
+        elif self.data_type.lower() == 'blackbody':
+            NEP = np.sqrt(psd) * ( (np.abs(S))**(-1)) * np.sqrt(1 + (2*np.pi*f*tqp)**2 ) * np.sqrt(1 + (2*np.pi*f*Qr/np.pi/f0)**2)
+           
+        return NEP
 
     def calculate_df(self, I, Q, hdr):
         """

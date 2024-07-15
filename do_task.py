@@ -124,10 +124,12 @@ for s, step in enumerate(TASKS):
         
         type_data = task_params['type']
         n = task_params['n']
+        complete = task_params['complete']
 
         if KIDS == "all":
             kids = None 
-            kid = 'K000'
+        kid = 'K000'
+        print(kids)
 
         if TEMPS == "all":
             temps = h.data[type_data][kid].keys()
@@ -148,7 +150,7 @@ for s, step in enumerate(TASKS):
 
                 for sample in samples:
                     if type_data == 'vna':
-                        h.fit_vna_resonators(kids, temp, atten, sample=sample, n=n, verbose=True)
+                        h.fit_vna_resonators(kids, temp, atten, sample=sample, n=n, complete=complete, verbose=True)
 
     # ---> Load fit
     elif task_name == "load_fit_res":
