@@ -118,6 +118,9 @@ class Homodyne:
         else:
             self.project_name = proj_name
 
+        foldername = diry.split('/')[-2]
+        self.date, self.data_type, self.meas, self.sample = self._get_meas_char_from_foldername(foldername)
+
         if not load_saved:
             # Loading data base
             msg('Loading directory...', 'info')
@@ -129,9 +132,6 @@ class Homodyne:
             diry = np.load(diry+'/backup_data/data_diry.npy')
 
         self.data_diry = diry
-
-        foldername = diry.split('/')[-2]
-        self.date, self.data_type, self.meas, self.sample = self._get_meas_char_from_foldername(foldername)
 
         # Create working directory
         self._create_diry(self.work_dir+self.project_name)
@@ -197,6 +197,8 @@ class Homodyne:
                             nz = 4
                         else:
                             nz = 3
+                        print(self.data_type)
+                        print(nz)
                         temp = temp_prefix + subdiry.split('_')[2].zfill(nz)
 
                         data['ts'][kid][temp] = {}
@@ -633,17 +635,20 @@ class Homodyne:
             
             for i in np.arange(5):
                 idx_map = i + idx - 2
-                
+
                 ii = cnt%5
                 jj = int(cnt/5)
 
-                if idx_map >= 0:
+                if idx_map >= 0 and idx_map<len(attens):
                     f, s21 = self.data['vna'][kid][tmp][attens[idx_map]]['data'][sample]
-                    f_fit = self.data['vna'][kid][tmp][attens[idx_map]]['fit'][sample]['freq_data']
-                    fit_s21 = self.data['vna'][kid][tmp][attens[idx_map]]['fit'][sample]['fit_data']
-
                     ax[jj,ii].plot(s21.real, s21.imag, 'ro-')
-                    ax[jj,ii].plot(fit_s21.real, fit_s21.imag, 'k')
+                    
+                    try:
+                        f_fit = self.data['vna'][kid][tmp][attens[idx_map]]['fit'][sample]['freq_data']
+                        fit_s21 = self.data['vna'][kid][tmp][attens[idx_map]]['fit'][sample]['fit_data']
+                        ax[jj,ii].plot(fit_s21.real, fit_s21.imag, 'k')
+                    except:
+                        pass
 
                     ax[jj,ii].axis('equal')
 
@@ -959,6 +964,32 @@ class Homodyne:
             plot(f_sample, 20*np.log10(np.abs(s21_sample)))
         """
 
+    def get_all_psd(self, kid, temp, atten, **kwargs):
+        """
+        Get the PSD for all the kid/temp/atten defined.
+        """
+
+        # Key arguments
+        # ----------------------------------------------
+        # Timestreams to ignore
+        ignore = kwargs.pop('ignore', [[0,1], [0,1]])
+        # Fit PSD?
+        fit_psd = kwargs.pop('fit_psd', True)
+        # Plot fit results?
+        plot_fit = kwargs.pop('plot_fit', True)
+        # ----------------------------------------------
+
+        kids = self._get_kids_to_sweep(kid, mode='ts')
+        for kid in kids:
+            msg(kid, 'info')
+            print('***************************************')
+
+            temps = self._get_temps_to_sweep(temp, kid, mode='ts')
+            for tmp in temps:
+
+                attens = self._get_atten_to_sweep(atten, tmp, kid, mode='ts')
+                for att in attens:
+                    self.get_psd_on_off(kid, tmp, att, ignore=ignore, fit=fit_psd, plot_fit=plot_fit)
 
     def get_responsivity(self, kid, atten, temp_conv='Nqp', material='Al', V=1, nu=35e9, var='fr', sample=0, flag_kid=[], custom=None, data_source='vna', diry_fts='/home/marcial/Homodyne-project/FFT-ANL-SLIM-SO-23', from_fit=False, method='min', plot_res=True):
         """
@@ -1193,7 +1224,7 @@ class Homodyne:
 
         return df, didq_mag
 
-    def get_psd_on_off(self, kid, temp, atten, ignore=[[0,1], [0]], fit=True, plot_fit=True):
+    def get_psd_on_off(self, kid, temp, atten, **kwargs):
         """
         Get the PSD on - off for a set of resonators.
         Parameters
@@ -1215,6 +1246,16 @@ class Homodyne:
         ----------
         """
 
+        # Key arguments
+        # ----------------------------------------------
+        # Timestreams to ignore
+        ignore = kwargs.pop('ignore', [[0,1], [0]])
+        # Fit PSD?
+        fit = kwargs.pop('fit', True)
+        # Plot fit results?
+        plot_fit = kwargs.pop('plot_fit', True)
+        # ----------------------------------------------
+
         f_off, psd_off, df_off = self.calculate_psd(kid, temp, atten, mode='off', ignore=ignore)
         self.data['ts'][kid][temp][atten]['psd'] = {}
         self.data['ts'][kid][temp][atten]['psd']['off'] = [f_off, psd_off]
@@ -1225,7 +1266,8 @@ class Homodyne:
         Qr = self.data['vna'][kid][temp][atten]['fit']['Qr']
 
         if fit:
-            f_nep, psd_nep, fit_psd_params, f, k_knee = fit_mix_psd(f_on, psd_on, psd_off, f0, Qr, amp_range=[7.5e4, 8.0e4], trim_range=[0, 9e4])
+            plot_name = kid + '-' + temp + '-' + atten
+            f_nep, psd_nep, fit_psd_params, f, k_knee = fit_mix_psd(f_on, psd_on, psd_off, f0, Qr, plot_name=plot_name, amp_range=[7.5e4, 8.0e4], trim_range=[0, 9e4])
             self.data['ts'][kid][temp][atten]['fit_psd'] = {}
             self.data['ts'][kid][temp][atten]['fit_psd']['params'] = fit_psd_params
             self.data['ts'][kid][temp][atten]['fit_psd']['psd'] = [f_nep, psd_nep]
@@ -1233,8 +1275,12 @@ class Homodyne:
 
         if fit and plot_fit:
 
-            fig, ax = subplots(1,1, figsize=(20,10))
+            fig, ax = subplots(1,1, figsize=(20,12))
             subplots_adjust(left=0.07, right=0.99, top=0.94, bottom=0.07, hspace=0.0, wspace=0.0)
+
+            # Plot on/off
+            ax.loglog(f_on, psd_on, 'm', lw=0.75, alpha=0.45)
+            ax.loglog(f_off, psd_off, 'g', lw=0.75, alpha=0.45)
 
             ax.loglog(f_nep, psd_nep, lw=1.0)
             fit_PSD = combined_model(f_nep, fit_psd_params['gr'], fit_psd_params['tau'], fit_psd_params['tls_a'], fit_psd_params['tls_b'], f0, Qr, fit_psd_params['amp_noise'])
@@ -1252,7 +1298,7 @@ class Homodyne:
             ax.loglog(f_nep, fit_psd_params['amp_noise']*np.ones_like(f_nep), 'g-', label='amp', lw=2)
 
             tau = fit_psd_params['tau']
-            ax.text(2000, 0.1*np.max(psd_nep), f'Qr  : {round(Qr,-1):,.0f}\nf0   : {round(f0/1e6,-1):,.0f} MHz\ntau : {tau*1e6:.1f} us')
+            ax.text(0.8, 0.8, f'Qr  : {round(Qr,-1):,.0f}\nf0   : {round(f0/1e6,-1):,.0f} MHz\ntau : {tau*1e6:.1f} us\nTLS_b : {fit_psd_params['tls_b']:.1f}', transform=ax.transAxes)
 
             #amp = fit_psd_params['amp_noise']
             #ax.text(0.5, amp*1.5, f'{amp:.3f} Hz^2/Hz')
@@ -1260,8 +1306,8 @@ class Homodyne:
 
             knee = self.data['ts'][kid][temp][atten]['fit_psd']['k_knee']
             ax.axvline(knee, color='m', lw=2.5)
-            ax.text(knee, 1e-3, f'1/f knee: {knee:.1f} Hz')
-            ax.set_ylim([1e-4, 1e3])
+            ax.text(knee, gr[0]*2.5, f'1/f knee: {knee:.1f} Hz')
+            ax.set_ylim([1e-3, 1e3])
 
             ax.grid(True, which="both", ls="-")
             name = str(kid)+'-'+str(temp)+'-'+str(atten)
@@ -1275,7 +1321,8 @@ class Homodyne:
             fig.savefig(self.work_dir+self.project_name+'/fit_psd_results/'+name+'.png')
             close(fig)
 
-            np.save(self.work_dir+self.project_name+'/fit_psd_dict/'+name, self.data['ts'][kid][temp][atten]['fit_psd'])
+            np.save(self.work_dir+self.project_name+'/fit_psd_dict/psd-'+name, self.data['ts'][kid][temp][atten]['psd'])
+            np.save(self.work_dir+self.project_name+'/fit_psd_dict/fit_psd-'+name, self.data['ts'][kid][temp][atten]['fit_psd'])
 
     def calculate_psd(self, kid, temp, atten, mode='on', ignore=[[0,1,2], [0]]):
         """
@@ -1438,9 +1485,10 @@ class Homodyne:
         files = next(walk(folder+'/fit_res_dict/'+data_type+'/'), (None, None, []))[2]
 
         for f in files:
-            kid = f.split('-')[1]
-            temp = f.split('-')[2]
-            atten = f.split('-')[3]
+            split_name = f.split('-')
+            kid = split_name[1]
+            temp = split_name[2]
+            atten = split_name[3]
             ns = int((f.split('-')[-1][1:]).split('.')[0])
 
             try:
@@ -1453,6 +1501,41 @@ class Homodyne:
             except Exception as e:
                 print('Fail loading '+f)
                 print(str(e))
+
+    def load_psd(self, folder):
+        """
+        Load fit files.
+        Parameters
+        ----------
+        folder : string
+            Folder name from where the sweeps fit are extracted.
+        data_type : string
+            Data type: vna or homodyne.
+        ----------
+        """
+
+        files = next(walk(folder+'/fit_psd_dict/'), (None, None, []))[2]
+
+        for f in files:
+            split_name = f.split('-')
+            file_type = split_name[0]
+            kid = split_name[1]
+            temp = split_name[2]
+            atten = split_name[3]
+            ns = int((f.split('-')[-1][1:]).split('.')[0])
+
+            try:
+                if file_type == 'fit_psd':
+                    fit_sample = np.load(folder+'/fit_psd_dict/'+f, allow_pickle=True).item()
+                    self.data['ts'][kid][temp][atten]['fit_psd'] = fit_sample
+                elif file_type == 'psd':
+                    psd_sample = np.load(folder+'/fit_psd_dict/'+f, allow_pickle=True).item()
+                    self.data['ts'][kid][temp][atten]['psd'] = psd_sample
+
+            except Exception as e:
+                print('Fail loading '+f)
+                print(str(e))
+
 
     def vna_xls_report(self, name=None):
         """
@@ -1608,7 +1691,7 @@ class Homodyne:
         n_temps = join_temps[np.argmax(temporal_temps)]
 
         x = int(np.sqrt(len(n_temps)))
-        y = int(len(n_temps)/x)
+        y = int(np.ceil(len(n_temps)/x))
 
         rcParams.update({'font.size': 15, 'font.weight': 'bold'})
         fig_qi, ax_qi = subplots(x, y, sharey=True, sharex=True, figsize=(20,12))
@@ -1716,6 +1799,11 @@ class Homodyne:
                     ax_qr[j, i].errorbar(atts_num, qr, yerr=qr_err, color=cmap_obj(norm_color(k_color)), marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
                     ax_qr[j, i].plot(atts_num, qr, 'o', label=kid, color=cmap_obj(norm_color(k_color)), linestyle=lstyle[lstyle_pointer])
 
+            if len(n_temps) > 1:
+                ax_qr[j, i].text(0.7, 0.85, str(int(tmp[1:])) + ' mK', {'fontsize': 15, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_qr[j, i].transAxes,)
+                ax_qc[j, i].text(0.7, 0.85, str(int(tmp[1:])) + ' mK', {'fontsize': 15, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_qc[j, i].transAxes,)
+                ax_qi[j, i].text(0.7, 0.85, str(int(tmp[1:])) + ' mK', {'fontsize': 15, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_qi[j, i].transAxes,)
+
             if i == 0:
                 if len(n_temps) == 1:
                     ax_qi.set_ylabel('Qi', fontsize=18, weight='bold')
@@ -1731,7 +1819,7 @@ class Homodyne:
                     ax_qc[j, i].set_ylabel('Qc', fontsize=18, weight='bold')
                     ax_qr[j, i].set_ylabel('Qr', fontsize=18, weight='bold')
 
-            if j == y-1:
+            if j == x-1:
                 if len(n_temps) == 1:
                     ax_qi.set_xlabel('Drive power [dB]', fontsize=18, weight='bold')
                     ax_qc.set_xlabel('Drive power [dB]', fontsize=18, weight='bold')
@@ -1742,7 +1830,7 @@ class Homodyne:
                     ax_qc[j, i].set_xlabel('Drive power [dB]', fontsize=18, weight='bold')
                     ax_qr[j, i].set_xlabel('Drive power [dB]', fontsize=18, weight='bold')
 
-                if i == x-1:
+                if i == y-1:
                     if len(n_temps) == 1:
                         ax_qi.legend(ncol=2)
                         ax_qc.legend(ncol=2)
@@ -1761,7 +1849,7 @@ class Homodyne:
         fig_qc.savefig(self.work_dir+self.project_name+'/fit_res_results/summary_plots/Qc_vs_power.png')
         fig_qi.savefig(self.work_dir+self.project_name+'/fit_res_results/summary_plots/Qi_vs_power.png')
 
-    def plot_ts_summary(self, kid, temp, atten, ignore=[[0,1], [0]], cmap='viridis'):
+    def plot_ts_summary(self, kid, temp, atten=None, ignore=[[0,1], [0]], cmap='viridis'):
         """
         Show all the timestreams.
         Parameters
@@ -1785,6 +1873,10 @@ class Homodyne:
 
         high_cols, low_cols = [], []
         kids = self._get_kids_to_sweep(kid, mode='ts')
+
+        if atten is None:
+            atten = self.overdriven
+
         for k, kid in enumerate(kids):
             k2 = int(kid[1:])
             #print(kid, temp, atten[k])
@@ -1797,9 +1889,9 @@ class Homodyne:
         xl = len(kids)
         yl = np.max(low_cols)
 
-        fig_I_low, ax_I_low = subplots(xl, yl, sharey='row')
+        fig_I_low, ax_I_low = subplots(xl, yl, sharey='row', figsize=(20,12))
         subplots_adjust(left=0.1, right=0.99, top=0.99, bottom=0.08, hspace=0.1, wspace=0.035)
-        fig_Q_low, ax_Q_low = subplots(xl, yl, sharey='row')
+        fig_Q_low, ax_Q_low = subplots(xl, yl, sharey='row', figsize=(20,12))
         subplots_adjust(left=0.1, right=0.99, top=0.99, bottom=0.08, hspace=0.1, wspace=0.035)
 
         xh = len(kids)
@@ -1809,12 +1901,12 @@ class Homodyne:
         figs_I, axs_I = [], []
         figs_Q, axs_Q = [], []
         for i in range(int(yh/ymax)):
-            fig_I_high, ax_I_high = subplots(xh, ymax, sharey='row')
+            fig_I_high, ax_I_high = subplots(xh, ymax, sharey='row', figsize=(20,12))
             subplots_adjust(left=0.1, right=0.99, top=0.99, bottom=0.08, hspace=0.1, wspace=0.035)
             figs_I.append(fig_I_high)
             axs_I.append(ax_I_high)
 
-            fig_Q_high, ax_Q_high = subplots(xh, ymax, sharey='row')
+            fig_Q_high, ax_Q_high = subplots(xh, ymax, sharey='row', figsize=(20,12))
             subplots_adjust(left=0.1, right=0.99, top=0.99, bottom=0.08, hspace=0.1, wspace=0.035)
             figs_Q.append(fig_Q_high)
             axs_Q.append(ax_Q_high)
@@ -1836,6 +1928,9 @@ class Homodyne:
 
                     ax_Q_low[k, ts].plot(ts_low, Q_low, lw=0.75, color=cmap(norm_color(k)))
                     #ax_Q_low[k, ts].grid()
+
+                    ax_I_low[k, ts].text(0.85, 0.85, str(ts), {'fontsize': 10, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_I_low[k, ts].transAxes)
+                    ax_Q_low[k, ts].text(0.85, 0.85, str(ts), {'fontsize': 10, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_Q_low[k, ts].transAxes)
 
                     if ts == 0:
                         ax_I_low[k, ts].set_ylabel(kid+'\n I[V]')
@@ -1883,6 +1978,9 @@ class Homodyne:
                     axs_I[cnt][k, m].plot(ts_high, I_high, lw=0.75, color=cmap(norm_color(k)))
                     axs_Q[cnt][k, m].plot(ts_high, Q_high, lw=0.75, color=cmap(norm_color(k)))
 
+                    axs_I[cnt][k, m].text(0.85, 0.85, str(th), {'fontsize': 10, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=axs_I[cnt][k, m].transAxes)
+                    axs_Q[cnt][k, m].text(0.85, 0.85, str(th), {'fontsize': 10, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=axs_I[cnt][k, m].transAxes)
+
                     if th == 0:
                         axs_I[cnt][k, m].set_ylabel(kid+'\n I[V]')
                         axs_Q[cnt][k, m].set_ylabel(kid+'\n Q[V]')
@@ -1914,7 +2012,20 @@ class Homodyne:
                 except Exception as e:
                     msg(kid+'-'+tmp+'-'+att+'-'+str(e), 'warn')
 
-    def plot_all_s21_kids(self, kid, temp, atten, sample=0, over_attens=True, data_source='vna', cmap='viridis', fig_name=None):
+        # Save figures
+        fig_I_low.savefig(self.work_dir+self.project_name+'/fit_psd_results/I_low-ts.png')
+        close(fig_I_low)
+        fig_Q_low.savefig(self.work_dir+self.project_name+'/fit_psd_results/Q_low-ts.png')
+        close(fig_Q_low)
+
+        # Save figures
+        for c in range(len(figs_I)):
+            figs_I[c].savefig(self.work_dir+self.project_name+'/fit_psd_results/I_high-ts-'+str(c)+'.png')
+            close(figs_I[c])
+            figs_Q[c].savefig(self.work_dir+self.project_name+'/fit_psd_results/Q_high-ts-'+str(c)+'.png')
+            close(figs_Q[c])
+
+    def plot_all_s21_kids(self, kid, temp, atten, sample=0, over_attens=True, data_source='vna', cmap='jet', fig_name=None):
         """
         Plot the S21 sweeps of all the detectors.
         Parameters
@@ -2048,20 +2159,21 @@ class Homodyne:
 
         cmap = matplotlib.cm.get_cmap('jet')
 
-        jobs = []
         kids = self._get_kids_to_sweep(kid)
         for kid in kids:
 
-            fig, axs = subplots(1, 2, figsize=(20,12))
-            subplots_adjust(left=0.05, right=0.99, top=0.97, bottom=0.08, wspace=0.12)
             msg(kid, 'info')
 
             temps = self._get_temps_to_sweep(temp, kid)
-            norm_color = matplotlib.colors.Normalize(vmin=0, vmax=len(temps))
 
-            for t, temp in enumerate(temps):
+            for t, tmp in enumerate(temps):
 
-                attens = self._get_atten_to_sweep(atten, temp, kid)
+                fig, axs = subplots(1, 2, figsize=(20,12))
+                subplots_adjust(left=0.05, right=0.99, top=0.97, bottom=0.08, wspace=0.12)
+
+                norm_color = matplotlib.colors.Normalize(vmin=0, vmax=len(temps))
+
+                attens = self._get_atten_to_sweep(atten, tmp, kid)
                 if len(temps) > 1:
                     alphas = np.linspace(1.0, 0.3, len(attens))
                     norm_color = matplotlib.colors.Normalize(vmin=0, vmax=len(temps))
@@ -2074,39 +2186,41 @@ class Homodyne:
 
                 for a, att in enumerate(attens):
                     try:
+                        """
                         if sweep_case == 1:
-                            alpha = alphas[a]
+                            alpha = 1.0 #alphas[a]
                             single_color = cmap(norm_color(t))
                             plot_title = kid
-                            curve_label = temp+'-'+att
-                        elif sweep_case == 2:
+                            curve_label = tmp+'-'+att
+                        """
+                        if sweep_case == 1 or sweep_case == 2:
                             alpha = 1.0
                             single_color = cmap(norm_color(a))
-                            plot_title = kid+'-'+temp
+                            plot_title = kid+'-'+tmp
                             curve_label = att
                         else:
                             alpha = 1.0
                             single_color = 'r'
-                            plot_title = kid+'-'+temp+'-'+att
+                            plot_title = kid+'-'+tmp+'-'+att
                             curve_label = plot_title
 
                         if data_source == 'vna':
-                            f, s21 = self.data['vna'][kid][temp][att]['data'][sample]
+                            f, s21 = self.data['vna'][kid][tmp][att]['data'][sample]
                         elif data_source == 'homo':
-                            f = self.data['ts'][kid][temp][att]['f']
-                            s21 = self.data['ts'][kid][temp][att]['s21']
+                            f = self.data['ts'][kid][tmp][att]['f']
+                            s21 = self.data['ts'][kid][tmp][att]['s21']
 
                         axs[0].plot(f/1e6, 20*np.log10(np.abs(s21)), color=single_color, alpha=alpha, lw=1.75 )
-                        if fit and 'fit' in self.data['vna'][kid][temp][att]:
-                            f_fit = self.data['vna'][kid][temp][att]['fit'][sample]['freq_data']
-                            s21_fit = self.data['vna'][kid][temp][att]['fit'][sample]['fit_data']
+                        if fit and 'fit' in self.data['vna'][kid][tmp][att]:
+                            f_fit = self.data['vna'][kid][tmp][att]['fit'][sample]['freq_data']
+                            s21_fit = self.data['vna'][kid][tmp][att]['fit'][sample]['fit_data']
                             axs[0].plot(f_fit/1e6, 20*np.log10(np.abs(s21_fit)), '-', color='k', lw=1.25 )
                         axs[0].set_title(plot_title, fontsize=18, weight='bold')
                         axs[0].set_xlabel('Frequency [MHz]', fontsize=18, weight='bold')
                         axs[0].set_ylabel('S21 [dB]', fontsize=18, weight='bold')
 
                         axs[1].plot(s21.real, s21.imag, color=single_color, alpha=alpha, label=curve_label, lw=1.75)
-                        if fit and 'fit' in self.data['vna'][kid][temp][att]:
+                        if fit and 'fit' in self.data['vna'][kid][tmp][att]:
                             axs[1].plot(s21_fit.real, s21_fit.imag, '-', color='k', lw=1.25 )
                         axs[1].set_title(plot_title, fontsize=18, weight='bold')
                         axs[1].axis('equal')
@@ -2117,11 +2231,11 @@ class Homodyne:
                         msg('Error plotting data\n'+str(e), 'warn')
 
                 axs[1].legend()
-                show()
 
                 # Save figures
                 fig_name = 'S21_'+plot_title
                 fig.savefig(self.work_dir+self.project_name+'/fit_res_results/summary_plots/'+fig_name+'.png')
+                close(fig)
 
     def get_sweeps_from_vna(self, temp, atten, thresh=1e5):
         """
@@ -2176,8 +2290,13 @@ class Homodyne:
         elif isinstance(kid, int):
             kids = ['K'+str(kid).zfill(3)]
         elif isinstance(kid, list):
-            kids = kid
-
+            kids = []
+            for k in kid:
+                if isinstance(k, int):
+                    kids.append('K'+str(k).zfill(3))
+                else:
+                    kids.append(k)
+        
         kids = sorted(kids)
         return kids
 

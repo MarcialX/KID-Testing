@@ -64,6 +64,7 @@ SAVE_PROJ = tasks_data['SAVE_PROJ']
 # In case all the resonators are selected this is the
 # general definition. However, it changes slightly for
 # task: "fit_res"
+kids, temps, atts, samples = KIDS, TEMPS, ATTS, SAMPLES
 if KIDS == "all":
     kids = None 
 if TEMPS == "all":
@@ -237,6 +238,53 @@ for s, step in enumerate(TASKS):
 
                 h.plot_s21_kid(kids, temps, atts, **the_args)
 
+    # ---> Apply despinking 
+    elif task_name == "despike":
+
+        flag_plot_ts = False
+        the_args = {}
+        plot_args = {}
+        # Plot all the S21 for all the KIDs
+        for p in task_params.keys():
+            if p == 'ignore':
+                the_args['ignore'] = task_params['ignore']
+                plot_args['ignore'] = task_params['ignore']
+            elif p == 'win_size':
+                the_args['win_size'] = task_params['win_size']            
+            elif p == 'sigma_thresh':
+                the_args['sigma_thresh'] = task_params['sigma_thresh']
+            elif p == 'peak_pts':
+                the_args['peak_pts'] = task_params['peak_pts']
+            elif p == 'plot_ts':
+                flag_plot_ts = task_params['plot_ts']
+            elif p == 'cmap':
+                plot_args['cmap'] = task_params['cmap']
+
+        h.despike(kids, temps, atts, **the_args)
+
+        if flag_plot_ts:
+            h.plot_ts_summary(kids, temps, atts, **plot_args)
+
+    # ---> Get the PSDs
+    elif task_name == "get_psd":
+
+        the_args = {}
+        # Plot all the S21 for all the KIDs
+        for p in task_params.keys():
+            if p == 'ignore':
+                the_args['ignore'] = task_params['ignore']
+            elif p == 'fit_psd':
+                the_args['fit_psd'] = task_params['fit_psd']            
+            elif p == 'plot_fit':
+                the_args['plot_fit'] = task_params['plot_fit']
+
+        h.get_all_psd(kids, temps, atts, **the_args)
+
+
+    # ---> Get responsivity
+    elif task_name == "responsivity":
+
+        pass
 
 
 

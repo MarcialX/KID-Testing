@@ -82,24 +82,26 @@ def get_psd(df, fs, join='mean'):
 
     return freqs[2:], join_psd[2:]
 
-def fit_mix_psd(f, psd_on, psd_off, f0, Qr, amp_range=[7.5e4, 8.0e4], trim_range=[4, 9e4]):
+def fit_mix_psd(f, psd_on, psd_off, f0, Qr, amp_range=[7.5e4, 8.0e4], trim_range=[4, 9e4], plot_name=""):
     """
     Get the pixed PSD.
     """
 
-    fitPSD = fit_psd()
+    fitPSD = fit_psd(name=plot_name)
     ioff()
 
     psd_clean = psd_on[np.where(f>trim_range[0])[0][0]:np.where(f>trim_range[1])[0][0]] - \
                 psd_off[np.where(f>trim_range[0])[0][0]:np.where(f>trim_range[1])[0][0]]
-    psd_clean_for_nep = psd_on# - psd_off
+    psd_clean_for_nep = psd_on - psd_off
     psd_clean_e = psd_clean[psd_clean>0]
 
     fm = f[np.where(f>trim_range[0])[0][0]:np.where(f>trim_range[1])[0][0]][psd_clean>0]
 
+    rcParams.update({'font.size': 15, 'font.weight': 'bold'})
     amp_idx_from = np.where(fm>amp_range[0])[0][0]
     amp_idx_to = np.where(fm<amp_range[1])[0][-1]
     amp_noise = np.nanmedian(psd_clean_e[amp_idx_from:amp_idx_to])
+    amp_noise = 0
 
     try:
         print('I N I T   P A R A M S')

@@ -25,8 +25,8 @@ class fit_spectral_noise():
     """
     def fit_kid_psd(self,psd_freqs, psd_df, kid_f0, kid_qr, amp_noise,
                     gr_guess=None, tauqp_guess=None, tlsa_guess=None,  tlsb_guess=-1.5,
-                    gr_min=0,      tauqp_min=0,      tlsa_min=-np.inf, tlsb_min=-1.501,
-                    gr_max=np.inf, tauqp_max=np.inf, tlsa_max=np.inf,  tlsb_max=-1.499,
+                    gr_min=0,      tauqp_min=0,      tlsa_min=-np.inf, tlsb_min=-2,
+                    gr_max=np.inf, tauqp_max=np.inf, tlsa_max=np.inf,  tlsb_max=-0.5,
                     sigma = None):
 
         def combined_model(freqs, gr_noise, tau_qp, tls_a, tls_b):
@@ -66,7 +66,6 @@ class fit_spectral_noise():
         fit_PSD = combined_model(psd_freqs,gr_noise,tau_qp,tls_a,tls_b)
 
         return gr_noise,tau_qp,amp_noise,tls_a,tls_b,fit_PSD
-
 
     def fit_kid_psd_log(self, psd_freqs, psd_df, kid_f0, kid_qr, amp_noise,
                     gr_guess=None, tauqp_guess=None, tlsa_guess=None,  tlsb_guess=-1.5,
@@ -112,8 +111,6 @@ class fit_spectral_noise():
 
         return gr_noise,tau_qp,amp_noise,tls_a,tls_b,fit_PSD
 
-
-
     def fit_kid_psd_q(self,psd_freqs, psd_df, kid_f0,amp_noise,
                     gr_guess=None, tauqp_guess=None, tlsa_guess=None,  tlsb_guess=-1.5, Q_r=5000,
                     gr_min=0,      tauqp_min=0,      tlsa_min=-np.inf, tlsb_min=-1.501, Q_min=0,
@@ -158,7 +155,6 @@ class fit_spectral_noise():
         fit_PSD = combined_model_q(psd_freqs,gr_noise,tau_qp,tls_a,tls_b,Q_r)
 
         return gr_noise,tau_qp,amp_noise,tls_a,tls_b,Q_r,fit_PSD
-
 
     def spectral_noise(self, freq, Nqp, tqp):
         """
@@ -229,10 +225,11 @@ class fit_spectral_noise():
 
 # FIT psd with interactive mode
 class fit_psd(object):
-    def __init__(self, sm_degree=9):
+    def __init__(self, name="", sm_degree=9):
         # Class to fit the PSD noise
         self.fit_PSD = fit_spectral_noise()
         self.sm_degree = sm_degree
+        self.plot_name = name
 
     def update_psd_fit(self, freq_psd, psd, f0_fits, Q, amp_noise):
         # SMooth applied
@@ -254,8 +251,9 @@ class fit_psd(object):
         self._ax.semilogx(freq_psd, 10*np.log10(psd), 'r', lw=1)
         self._ax.semilogx(freq_psd, 10*np.log10(psd_fit), 'k')
 
-        self._ax.set_xlabel(r'Frequency [Hz]')
-        self._ax.set_ylabel(r'PSD [Hz$^2$/Hz] ')
+        self._ax.set_title(self.plot_name)
+        self._ax.set_xlabel(r'Frequency [Hz]', fontsize=18, weight='bold')
+        self._ax.set_ylabel(r'PSD [Hz$^2$/Hz] ', fontsize=18, weight='bold')
 
     # Update PSD
     def fit_psd(self, freq_psd, psd, f0_fits, Q, amp_noise, inter=False):

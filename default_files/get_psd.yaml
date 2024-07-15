@@ -1,0 +1,51 @@
+# F I T   R E S O N A T O R S
+# ---------------------------------------------------
+# ---------------------------------------------------
+
+# L O A D   D A T A
+# ---------------------------------------------------
+# Load saved data
+# If False it reads the FITS files, otherwise load the .npy files
+LOAD_PROJ : False
+# Save project when the tasks are completed.
+SAVE_PROJ : True
+
+# D A T A   S E L E C T I O N
+# ---------------------------------------------------
+# Temperatures: Base temperature or Blackbody.
+TEMPS : "all"
+# Attenuations
+ATTS : "all"
+# Resonators
+KIDS : [1]
+# Number of repeats
+SAMPLES : "all"
+
+# T A S K S   D E F I N I T I O N
+# ---------------------------------------------------
+TASKS : 
+  "1" :
+    "name": "load_fit_res"
+    "params": {
+      "path" : "",
+      "type" : "vna"
+    }
+  "2" :
+    "name": "merge_vna"
+    "params": {
+      "xls_report" : False
+    }
+  "3" :
+    "name": "despike"
+    "params": {
+      "ignore" : [[0,1], [0,1]],
+      "win_size" : 350,
+      "sigma_thresh" : 3.5,
+      "peak_pts" : 4,
+      "plot_ts" : False
+    }
+  "4" :
+    "name": "get_psd"
+    "params": {
+
+    }
