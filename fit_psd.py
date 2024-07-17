@@ -23,10 +23,10 @@ class fit_spectral_noise():
     Get the model which match the PSD noise.
     A hundred percent based in PhD Sam Rowe code
     """
-    def fit_kid_psd(self,psd_freqs, psd_df, kid_f0, kid_qr, amp_noise,
-                    gr_guess=None, tauqp_guess=None, tlsa_guess=None,  tlsb_guess=-1.5,
-                    gr_min=0,      tauqp_min=0,      tlsa_min=-np.inf, tlsb_min=-2,
-                    gr_max=np.inf, tauqp_max=np.inf, tlsa_max=np.inf,  tlsb_max=-0.5,
+    def fit_kid_psd(self, ori_freqs, psd_freqs, psd_df, kid_f0, kid_qr, amp_noise,
+                    gr_guess=None, tauqp_guess=None, tlsa_guess=None,  tlsb_guess=-0.5,
+                    gr_min=0,      tauqp_min=0,      tlsa_min=-np.inf, tlsb_min=-2.0,
+                    gr_max=np.inf, tauqp_max=np.inf, tlsa_max=np.inf,  tlsb_max=-0.01,
                     sigma = None):
 
         def combined_model(freqs, gr_noise, tau_qp, tls_a, tls_b):
@@ -34,7 +34,7 @@ class fit_spectral_noise():
             gr = gr_noise/(1.+(2*np.pi*freqs*tau_qp)**2) / (1.+(2*np.pi*freqs*kid_qr/np.pi/kid_f0)**2)
             #gr = np.log10(gr)
             # Ruido TLS
-            tls = tls_a*freqs**tls_b / (1.+(2*np.pi*freqs*kid_qr/np.pi/kid_f0)**2)
+            tls = tls_a*freqs**(tls_b) / (1.+(2*np.pi*freqs*kid_qr/np.pi/kid_f0)**2)
             #tls = np.log10(tls)
             # Ruido del amplificador
             amp = amp_noise
@@ -43,13 +43,16 @@ class fit_spectral_noise():
             return gr + tls + amp
 
         if gr_guess is None:
-            gr_guess = 0.01
+            idx_from = np.where(psd_freqs>20)[0][0]
+            idx_to = np.where(psd_freqs<50)[0][-1]
+            gr_guess = np.median(psd_df[idx_from:idx_to])
         if tauqp_guess is None:
             tauqp_guess = 1./(psd_freqs.max()-psd_freqs.min())
         if tlsa_guess is None:
-            tlsa_guess = psd_df[-1]
+            idx_one = np.where(psd_freqs>1)[0][0]
+            tlsa_guess = psd_df[idx_one]
         if tlsb_guess is None:
-            tlsb_guess = 1.5
+            tlsb_guess = -0.5
 
         guess = np.array([gr_guess, tauqp_guess, tlsa_guess,  tlsb_guess ])
         bounds = np.array([ [gr_min, tauqp_min, tlsa_min,  tlsb_min ],
@@ -58,22 +61,21 @@ class fit_spectral_noise():
         if sigma is None:
             sigma = (1 / abs(np.gradient(psd_freqs)))
 
-        #print sigma
-
-        pval, pcov = curve_fit(combined_model, psd_freqs, psd_df, guess, bounds=bounds, sigma=sigma)
+        pval, pcov = curve_fit(combined_model, psd_freqs, psd_df, p0=guess, bounds=bounds, sigma=sigma)
         (gr_noise,tau_qp,tls_a,tls_b) = pval
 
-        fit_PSD = combined_model(psd_freqs,gr_noise,tau_qp,tls_a,tls_b)
+        fit_PSD = combined_model(ori_freqs, gr_noise, tau_qp, tls_a, tls_b)
+        print(tls_a, tls_b)
 
-        return gr_noise,tau_qp,amp_noise,tls_a,tls_b,fit_PSD
+        return gr_noise, tau_qp, amp_noise, tls_a, tls_b, fit_PSD
 
     def fit_kid_psd_log(self, psd_freqs, psd_df, kid_f0, kid_qr, amp_noise,
-                    gr_guess=None, tauqp_guess=None, tlsa_guess=None,  tlsb_guess=-1.5,
-                    gr_min=0,      tauqp_min=0,      tlsa_min=-np.inf, tlsb_min=-1.501,
-                    gr_max=np.inf, tauqp_max=np.inf, tlsa_max=np.inf,  tlsb_max=-1.499,
+                    gr_guess=None, tauqp_guess=None, tlsa_guess=None,  tlsb_guess=-0.5,
+                    gr_min=0,      tauqp_min=0,      tlsa_min=-np.inf, tlsb_min=-2.0,
+                    gr_max=np.inf, tauqp_max=np.inf, tlsa_max=np.inf,  tlsb_max=-0.01,
                     sigma = None):
 
-        def combined_model(freqs, gr_noise, tau_qp, tls_a, tls_b):
+        def combined_model_log(freqs, gr_noise, tau_qp, tls_a, tls_b):
             # Ruido Generación-Recombinación
             gr = gr_noise/(1.+(2*np.pi*freqs*tau_qp)**2) / (1.+(2*np.pi*freqs*kid_qr/np.pi/kid_f0)**2)
             #gr = np.log10(gr)
@@ -84,16 +86,19 @@ class fit_spectral_noise():
             amp = amp_noise
             #amp = np.log10(amp)
             # Ruido Total
-            return gr + tls + amp
-
+            return np.log10(gr + tls + amp)
+        
         if gr_guess is None:
-            gr_guess = 0.01
+            idx_from = np.where(psd_freqs>20)[0][0]
+            idx_to = np.where(psd_freqs<50)[0][-1]
+            gr_guess = np.median(psd_df[idx_from:idx_to])
         if tauqp_guess is None:
             tauqp_guess = 1./(psd_freqs.max()-psd_freqs.min())
         if tlsa_guess is None:
-            tlsa_guess = psd_df[-1]
+            idx_one = np.where(psd_freqs>1)[0][0]
+            tlsa_guess = psd_df[idx_one]
         if tlsb_guess is None:
-            tlsb_guess = 1.5
+            tlsb_guess = -0.5
 
         guess = np.array([gr_guess, tauqp_guess, tlsa_guess,  tlsb_guess ])
         bounds = np.array([ [gr_min, tauqp_min, tlsa_min,  tlsb_min ],
@@ -102,12 +107,12 @@ class fit_spectral_noise():
         if sigma is None:
             sigma = (1 / abs(np.gradient(psd_freqs)))
 
-        #print sigma
+        psd_df = np.log10(psd_df)
 
-        pval, pcov = curve_fit(combined_model, psd_freqs, psd_df, guess, bounds=bounds, sigma=sigma)
+        pval, pcov = curve_fit(combined_model_log, psd_freqs, psd_df, p0=guess, bounds=bounds, sigma=sigma)
         (gr_noise,tau_qp,tls_a,tls_b) = pval
 
-        fit_PSD = combined_model(psd_freqs,gr_noise,tau_qp,tls_a,tls_b)
+        fit_PSD = combined_model_log(psd_freqs,gr_noise,tau_qp,tls_a,tls_b)
 
         return gr_noise,tau_qp,amp_noise,tls_a,tls_b,fit_PSD
 
@@ -233,22 +238,53 @@ class fit_psd(object):
 
     def update_psd_fit(self, freq_psd, psd, f0_fits, Q, amp_noise):
         # SMooth applied
-        psd = scipy.signal.savgol_filter(psd, self.sm_degree, 3)
+        #n_psd = scipy.signal.savgol_filter(psd, self.sm_degree, 3)
+        n_freq, n_psd = self.decimate_psd(freq_psd, psd, w=5)
+
         # Fit PSD curve
-        gr_noise_s,tau_s,amp_noise_s,tls_a_s,tls_b_s,fit_PSD_s = self.fit_PSD.fit_kid_psd(freq_psd, psd, f0_fits, Q, amp_noise,
-                gr_guess=None,  tauqp_guess=None,   tlsa_guess=None,  tlsb_guess=-1.5,
+        gr_noise_s,tau_s,amp_noise_s,tls_a_s,tls_b_s,fit_PSD_s = self.fit_PSD.fit_kid_psd(freq_psd, n_freq, n_psd, f0_fits, Q, amp_noise,
+                gr_guess=None,  tauqp_guess=None,   tlsa_guess=None,  tlsb_guess=-0.5,
                 gr_min=0,       tauqp_min=0,        tlsa_min=-np.inf, tlsb_min=-2.0,
                 gr_max=np.inf,  tauqp_max=np.inf,   tlsa_max=np.inf,  tlsb_max=-0.01,
                 sigma = None)
 
         return gr_noise_s,tau_s,amp_noise_s,tls_a_s,tls_b_s,fit_PSD_s
 
+    def decimate_psd(self, freq_psd, psd, w=10):
+        """
+        Decimate PSD.
+        """
+        n_psd = []
+        n_freq = []
+        psd_accum = 0
+        freq_accum = 0
+        for i, p in enumerate(psd):
+            if i%w == 0 and i != 0:
+                n_psd.append(psd_accum/w)
+                n_freq.append(freq_accum/w)
+                psd_accum = 0
+                freq_accum = 0
+            psd_accum += p
+            freq_accum += freq_psd[i]
+        
+        n_freq = np.array(n_freq)
+        n_psd = np.array(n_psd)
+
+        return n_freq, n_psd
+
     # Update plot
     def update_plot(self, freq_psd, psd, psd_fit):
         # Plot original and fit
         self._ax.semilogx(freq_psd, 10*np.log10(psd), 'c')
-        psd = scipy.signal.savgol_filter(psd, self.sm_degree, 3)
-        self._ax.semilogx(freq_psd, 10*np.log10(psd), 'r', lw=1)
+    
+        #psd = scipy.signal.savgol_filter(psd, self.sm_degree, 3)
+        #self._ax.semilogx(freq_psd, 10*np.log10(psd), 'r', lw=1)
+        
+        n_freq, n_psd = self.decimate_psd(freq_psd, psd, w=5)
+        #m_freq, m_psd = self.decimate_psd(freq_psd, psd, w=10)
+        self._ax.semilogx(n_freq, 10*np.log10(n_psd), 'r', lw=1)
+        #self._ax.semilogx(m_freq, 10*np.log10(m_psd), 'g', lw=1)
+        
         self._ax.semilogx(freq_psd, 10*np.log10(psd_fit), 'k')
 
         self._ax.set_title(self.plot_name)

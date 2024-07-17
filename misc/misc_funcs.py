@@ -32,7 +32,9 @@ from scipy.optimize import curve_fit
 
 from scipy import signal
 from scipy import interpolate
-import scipy.integrate as integrate
+from scipy import integrate
+
+from matplotlib.pyplot import *
 
 from physics.physical_constants import *
 
@@ -118,38 +120,33 @@ def get_nqp(N0, T, Delta):
     nqp = 2 * N0 * np.sqrt( 2*np.pi*Kb*T*Delta ) * np.exp(-(Delta/(Kb*T)))
     return nqp
 
-def get_power_from_FTS(diry, kid, T):
+def get_power_from_FTS(diry, kid, T, n_pols=2):
     """
     Get the power from the FTS.
     """
 
-    fts = np.load(diry+'/KID'+str(kid).zfill(3)+'.npy')
+    fts = np.load(diry+'/K'+str(kid).zfill(3)+'.npy')
     f = fts[:,0][1:]
     tx = fts[:,1][1:]
 
     fl = 350
-    """
-    if nu == 150e9:
-        fl = 220
-    else:
-        fl = 150
-    """
-
     f_sel = f[np.where(f<fl)[0]]
     tx_sel = tx[np.where(f<fl)[0]]
 
     spec = tx_sel*planck(f_sel*1e9, T)
-
     nu_max = f_sel[np.argmax(tx_sel*1e9)]*1e9
 
     """
     figure()
     plot(f_sel, spec, label=str(kid).zfill(3))
-    axvline(nu_max)
+    #axvline(nu_max)
+    print('Central freq: ', nu_max)
+    show()
     """
 
     #Ao = 1
-    Ao = (c/nu_max)**2
-    P = integrate.trapz(spec, f_sel*1e9) * Ao
+    Ao = ((c/nu_max)**2)/n_pols
+    #print(c/nu_max)
+    P = integrate.trapezoid(spec, f_sel*1e9) * Ao
 
     return P

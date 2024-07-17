@@ -82,7 +82,7 @@ def get_psd(df, fs, join='mean'):
 
     return freqs[2:], join_psd[2:]
 
-def fit_mix_psd(f, psd_on, psd_off, f0, Qr, amp_range=[7.5e4, 8.0e4], trim_range=[4, 9e4], plot_name=""):
+def fit_mix_psd(f, psd_on, psd_off, f0, Qr, amp_range=[7.5e4, 8.0e4], trim_range=[0.2, 9e4], plot_name=""):
     """
     Get the pixed PSD.
     """

@@ -143,6 +143,8 @@ class Homodyne:
         self._create_diry(self.work_dir+self.project_name+'/fit_res_dict')
         self._create_diry(self.work_dir+self.project_name+'/fit_res_dict/vna')
         self._create_diry(self.work_dir+self.project_name+'/fit_res_dict/homodyne')
+        self._create_diry(self.work_dir+self.project_name+'/fit_res_dict/responsivity')
+        self._create_diry(self.work_dir+self.project_name+'/fit_res_dict/nep')
 
         self._create_diry(self.work_dir+self.project_name+'/fit_psd_results')
         self._create_diry(self.work_dir+self.project_name+'/fit_psd_dict')
@@ -1001,7 +1003,7 @@ class Homodyne:
                 for att in attens:
                     self.get_psd_on_off(kid, tmp, att, ignore=ignore, fit=fit_psd, plot_fit=plot_fit)
 
-    def get_responsivity(self, kid, temp_conv='Nqp', material='Al', dims=[1,1,1], nu=35e9, var='fr', sample=0, flag_kid=[], custom=None, data_source='vna', diry_fts='/home/marcial/Homodyne-project/FFT-ANL-SLIM-SO-23', from_fit=False, method='min', plot_res=True):
+    def get_responsivity(self, kid, temp_conv='Nqp', material='Al', dims=[1,1,1], nu=35e9, var='fr', sample=0, flag_kid=[], custom=None, data_source='vna', diry_fts='/home/marcial/Homodyne-project/FFT-ANL-SLIM-SO-23', from_fit=False, method='min', pwr_method='bandwidth', plot_res=True):
         """
         Get responsivity
         Parameters
@@ -1069,14 +1071,17 @@ class Homodyne:
         xg = int(np.sqrt(len(kids)))
         yg = int(len(kids)/xg)
 
-        S = []
-        pwrs = []
-        if from_fit:
+        tot_kids = len(self._get_kids_to_sweep(None))
+        tot_temps = len(self._get_temps_to_sweep(None, kids[0]))
+        S = np.zeros((tot_kids, tot_temps))
+        pwrs = np.zeros((tot_kids, tot_temps))
+        if plot_res:
             rc('font', family='serif', size='16')
             fig, ax = subplots(1,1, figsize=(15,9))
             subplots_adjust(left=0.110, right=0.99, top=0.97, bottom=0.07, hspace=0.0, wspace=0.0)
 
-        for k, kid in enumerate(kids):
+        for kid in kids:
+            k = int(kid[1:])
             msg(kid, 'info')
 
             i = k%yg
@@ -1123,10 +1128,10 @@ class Homodyne:
                     print('***********************************************')
                     msg('Temperature[K]: '+str(rt), 'info')
                     if temp_conv == 'power':
-                        if method == 'fts':
+                        if pwr_method == 'fts':
                             p = get_power_from_FTS(diry_fts, k, rt)
-                        elif method == 'bandwidth':
-                            p = bb2pwr(rt, nu[k])
+                        elif pwr_method == 'bandwidth':
+                            p = bb2pwr(rt, nu)
 
                         msg('Power[pW]: '+str(p*1e12), 'info')
                         power.append(p)
@@ -1154,7 +1159,14 @@ class Homodyne:
                     a, b = popt
                     dF0_dP = a*b*power**(b-1)
 
-                    S.append(dF0_dP)
+                    """
+                    b0 = f0_vs_pwr_model(power, a, b) - power*dF0_dP
+                    P_fit = np.linspace(power[0], power[-2], 1000)
+                    plot(power, f0_vs_pwr_model(power, *popt), 'rs-', label='fit')
+                    plot(P_fit, P_fit*dF0_dP[2] + b0[2], 'k-')
+                    """
+                    
+                    S[k] = dF0_dP
 
                 elif temp_conv == 'Nqp':
 
@@ -1163,14 +1175,13 @@ class Homodyne:
                     Nqps_fit = np.linspace(power[0], power[-1], 1000)
                     #plot(Nqps_fit, Nqps_fit*dF0_dNqp + b, 'k')
 
-                    S.append(dF0_dNqp)
+                    S[k] = dF0_dNqp
 
-                pwrs.append(power)
+                pwrs[k] = power
 
             except Exception as e:
                 print(e)
-                S.append(None)
-                pwrs.append(None)
+                #S[k, t] = None
 
             """
             # P O W E R
@@ -1213,7 +1224,7 @@ class Homodyne:
                         ax.plot(power, xs_plot, label=kid, linestyle=lstyle[lstyle_pointer], marker=lmarker[lstyle_pointer])
 
                     if temp_conv == 'power':
-                        ax.set_xlabel('BB temp [K]', fontsize=18, weight='bold')
+                        ax.set_xlabel('Power [W]', fontsize=18, weight='bold')
                     elif temp_conv == 'Nqp':
                         ax.set_xlabel('Nqp', fontsize=18, weight='bold')
                     ax.legend(ncol=2)
@@ -1226,74 +1237,111 @@ class Homodyne:
         #np.save(self.work_dir+self.project_name+'/fit_psd_dict/psd-'+name, self.data['ts'][kid][temp][atten]['psd'])
         #np.save(self.work_dir+self.project_name+'/fit_psd_dict/fit_psd-'+name, self.data['ts'][kid][temp][atten]['fit_psd'])
 
-        np.save(self.work_dir+self.project_name+'/fit_res_dict/responsivity-'+self.data_type, S)
-        np.save(self.work_dir+self.project_name+'/fit_res_dict/responsivity-powers-'+self.data_type, pwrs)
+        print(S)
+
+        np.save(self.work_dir+self.project_name+'/fit_res_dict/responsivity/responsivity-'+self.data_type, S)
+        np.save(self.work_dir+self.project_name+'/fit_res_dict/responsivity/responsivity-powers-'+self.data_type, pwrs)
 
         #return S, pwrs
 
-    def get_all_NEP(self, kid, temp, atten, **kwargs):
+    def get_all_NEP(self, kid, temp, **kwargs):
         """
         Get all the NEP(Noise Equivalent Power).
         """
 
         # Key arguments
         # ----------------------------------------------
-        # Timestreams to ignore
-        ignore = kwargs.pop('ignore', [[0,1], [0,1]])
-        # Fit PSD?
-        fit_psd = kwargs.pop('fit_psd', True)
-        # Plot fit results?
-        plot_fit = kwargs.pop('plot_fit', True)
         # Fixed frequencies
         fixed_freqs = kwargs.pop('fixed_freqs', [1, 10, 100])
         # NEP at a given temp
-        fixed_temp = kwargs.pop('fixed_temp', 0)
+        fixed_temp = kwargs.pop('fixed_temp', "B000")
         # Frequency width
         df = kwargs.pop('df', 0.5)
         # ----------------------------------------------
 
-        NEPs = np.zeros_like(fixed_freqs)
+        NEPs = np.zeros_like(fixed_freqs, dtype=float)
         kids = self._get_kids_to_sweep(kid, mode='ts')
 
         # Get responsivity
-        S = np.load(self.work_dir+self.project_name+'/fit_res_dict/responsivity-'+self.data_type)
-        pwrs = np.load(self.work_dir+self.project_name+'/fit_res_dict/responsivity-powers-'+self.data_type)
+        S = np.load(self.work_dir+self.project_name+'/fit_res_dict/responsivity-'+self.data_type+'.npy')
+        pwrs = np.load(self.work_dir+self.project_name+'/fit_res_dict/responsivity-powers-'+self.data_type+'.npy')
 
         rc('font', family='serif', size='16')
+        ioff()
         fig_nep_kids, ax_nep_kids = subplots(1, 1, figsize=(20,12))
         subplots_adjust(left=0.110, right=0.99, top=0.97, bottom=0.07, hspace=0.0, wspace=0.0)
 
-        for kid in enumerate(kids):
-            
+        for kid in kids:
             k = int(kid[1:])
             print('***************************************')
             msg(kid, 'info')
 
+            fig_kid, ax_kid = subplots(1, 1, figsize=(20,12))
+            fig_neps, ax_neps = subplots(1, 1, figsize=(20,12))
+            subplots_adjust(left=0.110, right=0.99, top=0.97, bottom=0.07, hspace=0.0, wspace=0.0)
             temps = self._get_temps_to_sweep(temp, kid, mode='ts')
-            for tmp in temps:
+            for t, tmp in enumerate(temps):
+                
+                att = self._get_atten_to_sweep(self.overdriven[k], tmp, kid, mode='ts')[0]
 
-                att = self._get_atten_to_sweep(self.overdriven[k], tmp, kid, mode='ts')
-                f_nep, psd_nep = self.data['ts'][kid][temp][att]['fit_psd']['psd']
+                print(temp, att)
+                f_nep, psd_nep = self.data['ts'][kid][tmp][att]['fit_psd']['psd']
 
                 # Noise params
-                psd_params = self.data['ts'][kid][temp][atten]['fit_psd']['params']
+                psd_params = self.data['ts'][kid][tmp][att]['fit_psd']['params']
                 tqp = psd_params['tau']
 
                 # Resonator params
-                f0 = self.data['vna'][kid][temp][atten]['fit']['fr']
-                Qr = self.data['vna'][kid][temp][atten]['fit']['Qr']        
+                f0 = self.data['vna'][kid][tmp][att]['fit']['fr']
+                Qr = self.data['vna'][kid][tmp][att]['fit']['Qr']  
 
-                NEP = self.get_NEP(f_nep, psd_nep, tqp, S[k], Qr, f0)
+                print('mmmmmmmmmmmmmmmmmmm')
+                print(tqp, S[k][t], Qr, f0)      
+
+                NEP = self.get_NEP(f_nep, psd_nep, tqp, S[k][t], Qr, f0)
 
                 for i, fx in enumerate(fixed_freqs):
-                    idx_from = np.where(fx-df > f_nep)[0][0]
-                    idx_to = np.where(fx+df < f_nep)[1][0]
-                    NEPs[i] = np.mean(NEP[idx_from:idx_to])
+                    idx_from = np.where(f_nep > fx-df*(i+1))[0][0]
+                    idx_to = np.where(f_nep < fx+df*(i+1))[0][-1]
+                    NEPs[i] = np.median(NEP[idx_from:idx_to])
 
-                np.save(self.work_dir+self.project_name+'/fit_res_dict/nep-'+kid+'-'+temp+'-'+atten, NEP)
-                np.save(self.work_dir+self.project_name+'/fit_res_dict/neps_pts-'+kid+'-'+temp+'-'+atten, [fixed_freqs, NEPs])
+                ax_neps.plot(pwrs[k][t], NEPs[0], 'rs-')
+                ax_neps.plot(pwrs[k][t], NEPs[1], 'gD-')
+                ax_neps.plot(pwrs[k][t], NEPs[2], 'bo-')
 
-            
+                print(NEPs)
+
+                if tmp == fixed_temp:
+                    temp_NEP = NEP
+                    temp_freq = f_nep
+
+                ax_kid.loglog(f_nep, NEP, label=tmp)
+
+                np.save(self.work_dir+self.project_name+'/fit_res_dict/nep-'+kid+'-'+tmp+'-'+att, [f_nep, NEP])
+                np.save(self.work_dir+self.project_name+'/fit_res_dict/neps_pts-'+kid+'-'+tmp+'-'+att, [fixed_freqs, NEPs])
+
+            ax_kid.set_title(kid)
+            ax_kid.set_xlabel('Frequency [MHz]')
+            ax_kid.set_ylabel('NEP [W/sqrt(Hz)]')
+            ax_kid.grid(True, which="both", ls="-")
+            ax_kid.legend()
+
+            ax_neps.set_title(kid)
+            ax_neps.set_xlabel('Power [W]')
+            ax_neps.set_ylabel('NEP [W/sqrt(Hz)]')
+            ax_neps.grid(True, which="both", ls="-")
+            ax_neps.legend()
+
+            try:
+                ax_nep_kids.loglog(temp_freq, temp_NEP, label=kid)
+                ax_nep_kids.set_xlabel('Frequency [MHz]')
+                ax_nep_kids.set_ylabel('NEP [W/sqrt(Hz)]')
+            except:
+                pass
+
+        ax_nep_kids.grid(True, which="both", ls="-")
+        ax_nep_kids.legend()
+        show()
 
     def get_NEP(self, f, psd, tqp, S, Qr, f0, **kwargs):
         """
@@ -1430,8 +1478,6 @@ class Homodyne:
             tau = fit_psd_params['tau']
             ax.text(0.8, 0.8, f'Qr  : {round(Qr,-1):,.0f}\nf0   : {round(f0/1e6,-1):,.0f} MHz\ntau : {tau*1e6:.1f} us\nTLS_b : {fit_psd_params['tls_b']:.1f}', transform=ax.transAxes)
 
-            #amp = fit_psd_params['amp_noise']
-            #ax.text(0.5, amp*1.5, f'{amp:.3f} Hz^2/Hz')
             ax.axhline(fit_psd_params['gr'], color='k', linestyle='dashed', lw=2)
 
             knee = self.data['ts'][kid][temp][atten]['fit_psd']['k_knee']
@@ -1490,7 +1536,9 @@ class Homodyne:
 
             fs = hdr_low['SAMPLERA']
             print(fs)
-            freq_low, psd_low = get_psd(df_low, fs)
+            f0 = hdr_low['SYNTHFRE']
+            print(f0)
+            freq_low, psd_low = get_psd(np.array(df_low)/f0, fs)
 
             # High-frequency PSD
             I_high = self.data['ts'][kid][temp][atten]['I_'+mode][1]
@@ -1508,7 +1556,8 @@ class Homodyne:
 
             fs = hdr_high['SAMPLERA']
             print(fs)
-            freq_high, psd_high = get_psd(df_high, fs)
+            f0 = hdr_high['SYNTHFRE']
+            freq_high, psd_high = get_psd(np.array(df_high)/f0, fs)
 
             f, psd = mix_psd([freq_low, freq_high], [psd_low, psd_high])
 
@@ -1546,6 +1595,8 @@ class Homodyne:
         verbose = kwargs.pop('verbose', False)
 
         kids = self._get_kids_to_sweep(kid, mode='ts')
+        print(kids)
+
         for kid in kids:
             print(kid)
             temps = self._get_temps_to_sweep(temp, kid, mode='ts')
@@ -1629,7 +1680,7 @@ class Homodyne:
                 self.data['vna'][kid][temp][atten]['fit'][ns] = sample
 
             except Exception as e:
-                print('Fail loading '+f)
+                print('Resonator fit. Fail loading '+f)
                 print(str(e))
 
     def load_psd(self, folder):
@@ -1647,12 +1698,14 @@ class Homodyne:
         files = next(walk(folder+'/fit_psd_dict/'), (None, None, []))[2]
 
         for f in files:
-            split_name = f.split('-')
+            split_name = f[:-4].split('-')
             file_type = split_name[0]
             kid = split_name[1]
             temp = split_name[2]
             atten = split_name[3]
             ns = int((f.split('-')[-1][1:]).split('.')[0])
+
+            print(kid, temp, atten)
 
             try:
                 if file_type == 'fit_psd':
@@ -1663,9 +1716,8 @@ class Homodyne:
                     self.data['ts'][kid][temp][atten]['psd'] = psd_sample
 
             except Exception as e:
-                print('Fail loading '+f)
+                print('PSD fit. Fail loading '+f)
                 print(str(e))
-
 
     def vna_xls_report(self, name=None):
         """
@@ -1791,7 +1843,7 @@ class Homodyne:
 
     # S O M E   U S E F U L   P L O T S
     # --------------------------------------------------------------------------
-    def plot_qs_vs_drive_power(self, kid=None, temp=None, atten=None, cmap='tab10'):
+    def plot_qs_vs_drive_power(self, kid=None, temp=None, atten=None, **kwargs):
         """
         Generate the plot qi vs drive power.
         Parameters
@@ -1807,10 +1859,19 @@ class Homodyne:
         ----------
         """
 
+        # Key arguments
+        # ----------------------------------------------
+        # Ignore detectors
+        ignore = kwargs.pop('ignore', [])
+        # cmap
+        cmap = kwargs.pop('cmap', 'tab10')
+        # ----------------------------------------------
+
         ioff()
         cmap_obj = matplotlib.cm.get_cmap(cmap)
 
         kids = self._get_kids_to_sweep(kid, mode='vna')
+        ignore_kids = self._get_kids_to_sweep(ignore, mode='vna')
 
         temporal_temps = []
         join_temps = []
@@ -1851,83 +1912,85 @@ class Homodyne:
 
             for k, kid in enumerate(kids):
 
-                k2 = int(kid[1:])
-                attens = self._get_atten_to_sweep(atten, tmp, kid, mode='vna')
+                if not kid in ignore_kids:
 
-                atts_num = []
-                qi, qc, qr = [], [], []
-                qi_err, qc_err, qr_err = [], [], []
-                for att in attens:
-                    try:
-                        if float(att[1:]) >= self.overdriven[k2]:
-                            if not self.data['vna'][kid][tmp][att]['fit']['Qi_err'] is None:
-                                print(' ->'+att)
+                    k2 = int(kid[1:])
+                    attens = self._get_atten_to_sweep(atten, tmp, kid, mode='vna')
 
-                                #if (self.data['vna'][kid][tmp][att]['fit']['Qi_err']/self.data['vna'][kid][tmp][att]['fit']['Qi']) < 0.1:
+                    atts_num = []
+                    qi, qc, qr = [], [], []
+                    qi_err, qc_err, qr_err = [], [], []
+                    for att in attens:
+                        try:
+                            if float(att[1:]) >= self.overdriven[k2]:
+                                if not self.data['vna'][kid][tmp][att]['fit']['Qi_err'] is None:
+                                    print(' ->'+att)
 
-                                # Get the attenuations
-                                extra_att = self.data['vna'][kid][tmp][att]['header'][0]['ATT_UC'] + \
-                                            self.data['vna'][kid][tmp][att]['header'][0]['ATT_C'] + \
-                                            self.data['vna'][kid][tmp][att]['header'][0]['ATT_RT']
+                                    #if (self.data['vna'][kid][tmp][att]['fit']['Qi_err']/self.data['vna'][kid][tmp][att]['fit']['Qi']) < 0.1:
 
-                                #print(self.data['vna'][kid][tmp][att]['header'][0]['ATT_UC'])
-                                #print(self.data['vna'][kid][tmp][att]['header'][0]['ATT_C'])
-                                #print(self.data['vna'][kid][tmp][att]['header'][0]['ATT_RT'])
+                                    # Get the attenuations
+                                    extra_att = self.data['vna'][kid][tmp][att]['header'][0]['ATT_UC'] + \
+                                                self.data['vna'][kid][tmp][att]['header'][0]['ATT_C'] + \
+                                                self.data['vna'][kid][tmp][att]['header'][0]['ATT_RT']
 
-                                atts_num.append(-1*(float(att[1:])+extra_att+self.add_in_atten) )
+                                    #print(self.data['vna'][kid][tmp][att]['header'][0]['ATT_UC'])
+                                    #print(self.data['vna'][kid][tmp][att]['header'][0]['ATT_C'])
+                                    #print(self.data['vna'][kid][tmp][att]['header'][0]['ATT_RT'])
 
-                                # Get Qs errors
-                                qi_err.append(self.data['vna'][kid][tmp][att]['fit']['Qi_err'])
-                                qc_err.append(self.data['vna'][kid][tmp][att]['fit']['Qc_err'])
-                                qr_err.append(self.data['vna'][kid][tmp][att]['fit']['Qr_err'])
+                                    atts_num.append(-1*(float(att[1:])+extra_att+self.add_in_atten) )
 
-                                # Get Qs
-                                qi.append(self.data['vna'][kid][tmp][att]['fit']['Qi'])
-                                qc.append(self.data['vna'][kid][tmp][att]['fit']['Qc'])
-                                qr.append(self.data['vna'][kid][tmp][att]['fit']['Qr'])
+                                    # Get Qs errors
+                                    qi_err.append(self.data['vna'][kid][tmp][att]['fit']['Qi_err'])
+                                    qc_err.append(self.data['vna'][kid][tmp][att]['fit']['Qc_err'])
+                                    qr_err.append(self.data['vna'][kid][tmp][att]['fit']['Qr_err'])
 
-                    except Exception as e:
-                        print(att+' not available\n'+str(e))
+                                    # Get Qs
+                                    qi.append(self.data['vna'][kid][tmp][att]['fit']['Qi'])
+                                    qc.append(self.data['vna'][kid][tmp][att]['fit']['Qc'])
+                                    qr.append(self.data['vna'][kid][tmp][att]['fit']['Qr'])
 
-                if k%10 == 0:
-                    lstyle_pointer += 1
+                        except Exception as e:
+                            print(att+' not available\n'+str(e))
 
-                if flag_color_loop:
-                    k_color = k%int(cmap[-2:])
-                else:
-                    k_color = k
+                    if k%10 == 0:
+                        lstyle_pointer += 1
 
-                if len(n_temps) == 1:
+                    if flag_color_loop:
+                        k_color = k%int(cmap[-2:])
+                    else:
+                        k_color = k
 
-                    ax_qi.errorbar(atts_num, qi, yerr=qi_err, color=cmap_obj(norm_color(k_color)), marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
-                    ax_qi.plot(atts_num, qi, 's', label=kid, color=cmap_obj(norm_color(k_color)), linestyle=lstyle[lstyle_pointer])
+                    if len(n_temps) == 1:
 
-                    ax_qc.errorbar(atts_num, qc, yerr=qc_err, color=cmap_obj(norm_color(k_color)), marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
-                    ax_qc.plot(atts_num, qc, '^', label=kid, color=cmap_obj(norm_color(k_color)), linestyle=lstyle[lstyle_pointer])
+                        ax_qi.errorbar(atts_num, qi, yerr=qi_err, color=cmap_obj(norm_color(k_color)), marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
+                        ax_qi.plot(atts_num, qi, 's', label=kid, color=cmap_obj(norm_color(k_color)), linestyle=lstyle[lstyle_pointer])
 
-                    ax_qr.errorbar(atts_num, qr, yerr=qr_err, color=cmap_obj(norm_color(k_color)), marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
-                    ax_qr.plot(atts_num, qr, 'o', label=kid, color=cmap_obj(norm_color(k_color)), linestyle=lstyle[lstyle_pointer])
+                        ax_qc.errorbar(atts_num, qc, yerr=qc_err, color=cmap_obj(norm_color(k_color)), marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
+                        ax_qc.plot(atts_num, qc, '^', label=kid, color=cmap_obj(norm_color(k_color)), linestyle=lstyle[lstyle_pointer])
 
-                    """
-                    #ax_qi.errorbar(atts_num, qi, yerr=qi_err, marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
-                    ax_qi.plot(atts_num, qi, 's', label=kid,  linestyle=lstyle[lstyle_pointer])
+                        ax_qr.errorbar(atts_num, qr, yerr=qr_err, color=cmap_obj(norm_color(k_color)), marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
+                        ax_qr.plot(atts_num, qr, 'o', label=kid, color=cmap_obj(norm_color(k_color)), linestyle=lstyle[lstyle_pointer])
 
-                    #ax_qc.errorbar(atts_num, qc, yerr=qc_err, marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
-                    ax_qc.plot(atts_num, qc, '^', label=kid,  linestyle=lstyle[lstyle_pointer])
+                        """
+                        #ax_qi.errorbar(atts_num, qi, yerr=qi_err, marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
+                        ax_qi.plot(atts_num, qi, 's', label=kid,  linestyle=lstyle[lstyle_pointer])
 
-                    #ax_qr.errorbar(atts_num, qr, yerr=qr_err, marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
-                    ax_qr.plot(atts_num, qr, 'o', label=kid,  linestyle=lstyle[lstyle_pointer])
-                    """
-                    
-                else:
-                    ax_qi[j, i].errorbar(atts_num, qi, yerr=qi_err, color=cmap_obj(norm_color(k_color)), marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
-                    ax_qi[j, i].plot(atts_num, qi, 's', label=kid, color=cmap_obj(norm_color(k_color)), linestyle=lstyle[lstyle_pointer])
+                        #ax_qc.errorbar(atts_num, qc, yerr=qc_err, marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
+                        ax_qc.plot(atts_num, qc, '^', label=kid,  linestyle=lstyle[lstyle_pointer])
 
-                    ax_qc[j, i].errorbar(atts_num, qc, yerr=qc_err, color=cmap_obj(norm_color(k_color)), marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
-                    ax_qc[j, i].plot(atts_num, qc, '^', label=kid, color=cmap_obj(norm_color(k_color)), linestyle=lstyle[lstyle_pointer])
+                        #ax_qr.errorbar(atts_num, qr, yerr=qr_err, marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
+                        ax_qr.plot(atts_num, qr, 'o', label=kid,  linestyle=lstyle[lstyle_pointer])
+                        """
+                        
+                    else:
+                        ax_qi[j, i].errorbar(atts_num, qi, yerr=qi_err, color=cmap_obj(norm_color(k_color)), marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
+                        ax_qi[j, i].plot(atts_num, qi, 's', label=kid, color=cmap_obj(norm_color(k_color)), linestyle=lstyle[lstyle_pointer])
 
-                    ax_qr[j, i].errorbar(atts_num, qr, yerr=qr_err, color=cmap_obj(norm_color(k_color)), marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
-                    ax_qr[j, i].plot(atts_num, qr, 'o', label=kid, color=cmap_obj(norm_color(k_color)), linestyle=lstyle[lstyle_pointer])
+                        ax_qc[j, i].errorbar(atts_num, qc, yerr=qc_err, color=cmap_obj(norm_color(k_color)), marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
+                        ax_qc[j, i].plot(atts_num, qc, '^', label=kid, color=cmap_obj(norm_color(k_color)), linestyle=lstyle[lstyle_pointer])
+
+                        ax_qr[j, i].errorbar(atts_num, qr, yerr=qr_err, color=cmap_obj(norm_color(k_color)), marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
+                        ax_qr[j, i].plot(atts_num, qr, 'o', label=kid, color=cmap_obj(norm_color(k_color)), linestyle=lstyle[lstyle_pointer])
 
             if len(n_temps) > 1:
                 if self.data_type.lower() == 'dark':
@@ -1945,14 +2008,20 @@ class Homodyne:
                     ax_qc.set_ylabel('Qc', fontsize=18, weight='bold')
                     ax_qr.set_ylabel('Qr', fontsize=18, weight='bold')
 
-                    ax_qi.grid(True, which="both", ls="-")
-                    ax_qc.grid(True, which="both", ls="-")
-                    ax_qr.grid(True, which="both", ls="-")
-
                 else:
                     ax_qi[j, i].set_ylabel('Qi', fontsize=18, weight='bold')
                     ax_qc[j, i].set_ylabel('Qc', fontsize=18, weight='bold')
                     ax_qr[j, i].set_ylabel('Qr', fontsize=18, weight='bold')
+
+            if len(n_temps) == 1:
+                ax_qi.grid(True, which="both", ls="-")
+                ax_qc.grid(True, which="both", ls="-")
+                ax_qr.grid(True, which="both", ls="-")
+            
+            else:
+                ax_qi[j, i].grid(True, which="both", ls="-")
+                ax_qc[j, i].grid(True, which="both", ls="-")
+                ax_qr[j, i].grid(True, which="both", ls="-")
 
             if j == x-1:
                 if len(n_temps) == 1:
@@ -1965,7 +2034,7 @@ class Homodyne:
                     ax_qc[j, i].set_xlabel('Drive power [dB]', fontsize=18, weight='bold')
                     ax_qr[j, i].set_xlabel('Drive power [dB]', fontsize=18, weight='bold')
 
-                if i == y-1:
+                if t == len(n_temps)-1:
                     if len(n_temps) == 1:
                         ax_qi.legend(ncol=2)
                         ax_qc.legend(ncol=2)
@@ -2255,14 +2324,16 @@ class Homodyne:
                                 axm[j,i].set_ylabel('S21 [dB]', fontsize=18, weight='bold')
                             if j == xg-1:
                                 axm[j,i].set_xlabel('Frequency [MHz]', fontsize=18, weight='bold')
-                                if i == yg-1:
-                                    axm[j,i].legend(ncol=2)
 
                         except Exception as e:
                             msg('Error plotting data\n'+str(e), 'warn')
 
             else:
                 axm[j,i].axis('off')
+
+            print(xg*yg, k)
+            if k == len(kids)-1:
+                axm[j,i].legend(ncol=2)
 
         show()
 

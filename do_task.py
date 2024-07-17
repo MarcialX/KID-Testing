@@ -132,13 +132,13 @@ for s, step in enumerate(TASKS):
         print(kids)
 
         if TEMPS == "all":
-            temps = h.data[type_data][kid].keys()
+            tmps = list(h.data[type_data][kid].keys())
         else:
-            temps = TEMPS
+            tmps = TEMPS
 
-        for temp in temps:
+        for temp in tmps:
             if ATTS == "all":
-                attens = h.data[type_data][kid][temp].keys()
+                attens = list(h.data[type_data][kid][temp].keys())
             else:
                 attens = ATTS
 
@@ -162,6 +162,15 @@ for s, step in enumerate(TASKS):
         type_data = task_params['type']
 
         h.load_fit(folder=path, data_type=type_data)     
+
+    # ---> Load fit
+    elif task_name == "load_psd":
+
+        path = task_params['path']
+        if path == "":
+            path = project_path+'/'+project_name
+
+        h.load_psd(folder=path)     
 
     # ---> Merge sample results
     elif task_name == "merge_vna":
@@ -305,23 +314,33 @@ for s, step in enumerate(TASKS):
             elif p == 'material':
                 the_args['material'] = task_params['material']
             elif p == 'nu':
-                the_args['nu'] = task_params['nu']
+                the_args['nu'] = float(task_params['nu'])
             elif p == 'sample':
                 the_args['sample'] = task_params['sample']
             elif p == 'custom':
                 the_args['custom'] = task_params['custom']
-            elif p == 'diry_fits':
-                the_args['diry_fits'] = task_params['diry_fits']
+            elif p == 'diry_fts':
+                the_args['diry_fts'] = task_params['diry_fts']
             elif p == 'method':
                 the_args['method'] = task_params['method']
+            elif p == 'pwr_method':
+                the_args['pwr_method'] = task_params['pwr_method']
 
         h.get_responsivity(kids, **the_args)
 
     # ---> Get NEP
     elif task_name == "NEP":
 
-        pass
+        the_args = {}
+        # Plot all the S21 for all the KIDs
+        for p in task_params.keys():
+            if p == 'fixed_freqs':
+                the_args['fixed_freqs'] = task_params['fixed_freqs']
+            elif p == 'fixed_temp':
+                the_args['fixed_temp'] = task_params['fixed_temp']            
+            elif p == 'df':
+                the_args['df'] = task_params['df']      
 
-
+        h.get_all_NEP(kids, temps, **the_args)
 
 
