@@ -344,7 +344,7 @@ class Homodyne:
         np.save(self.work_dir+self.proj_name+'/backup_data/'+filename, self.data)
         np.save(self.work_dir+self.proj_name+'/backup_data/data_diry.npy', self.data_diry)
 
-    def fit_vna_resonators(self, kid=None, temp=None, atten=None, complete=True, sample=0, n=3.5, **kwargs):
+    def fit_vna_resonators(self, kid=None, temp=None, atten=None, sample=0, complete=True, n=3.5, **kwargs):
         """
         Fit the VNA resonators.
         Define a set of data to fit. If none is defined, it will
@@ -395,6 +395,8 @@ class Homodyne:
                         flag_do_it = True
                     elif complete and (not ('fit' in self.data['vna'][kid][temp][atten])):
                         flag_do_it = True
+                    elif not sample in self.data['vna'][kid][temp][atten]['fit'].keys():
+                        flag_do_it = True
 
                     if flag_do_it:
                         try:
@@ -413,11 +415,11 @@ class Homodyne:
                             msg('Fit is taking too much time...', 'fail')
                     else:
                         print('++++++++++++++++++++++')
-                        print(kid+'-'+temp+'-'+atten+' done')
+                        print(kid+'-'+temp+'-'+atten+'-'+str(sample)+' done')
 
         for proc in jobs:
         	proc.join()
-
+            
         for k in fitRes.keys():
 
             parse_key = k.split(',')
@@ -1162,10 +1164,18 @@ class Homodyne:
                     """
                     b0 = f0_vs_pwr_model(power, a, b) - power*dF0_dP
                     P_fit = np.linspace(power[0], power[-2], 1000)
+                    figure(kid)
                     plot(power, f0_vs_pwr_model(power, *popt), 'rs-', label='fit')
-                    plot(P_fit, P_fit*dF0_dP[2] + b0[2], 'k-')
+                    plot(power, xs, 'bs')
+                    for f in range(len(dF0_dP)):
+                        print('plotting')
+                        plot(P_fit, P_fit*dF0_dP[f] + b0[f], 'k-')
+                    show()
                     """
                     
+                    # Get the tangent
+                    dF0_dP = np.gradient(xs, power)
+
                     S[k] = dF0_dP
 
                 elif temp_conv == 'Nqp':
@@ -1232,7 +1242,7 @@ class Homodyne:
         if plot_res:
             show()
 
-            fig.savefig(self.work_dir+self.project_name+'/fit_res_dict/responsivity-'+self.data_type+'.png')
+            fig.savefig(self.work_dir+self.project_name+'/fit_res_dict/responsivity/responsivity-'+self.data_type+'.png')
 
         #np.save(self.work_dir+self.project_name+'/fit_psd_dict/psd-'+name, self.data['ts'][kid][temp][atten]['psd'])
         #np.save(self.work_dir+self.project_name+'/fit_psd_dict/fit_psd-'+name, self.data['ts'][kid][temp][atten]['fit_psd'])
@@ -1263,8 +1273,8 @@ class Homodyne:
         kids = self._get_kids_to_sweep(kid, mode='ts')
 
         # Get responsivity
-        S = np.load(self.work_dir+self.project_name+'/fit_res_dict/responsivity-'+self.data_type+'.npy')
-        pwrs = np.load(self.work_dir+self.project_name+'/fit_res_dict/responsivity-powers-'+self.data_type+'.npy')
+        S = np.load(self.work_dir+self.project_name+'/fit_res_dict/responsivity/responsivity-'+self.data_type+'.npy')
+        pwrs = np.load(self.work_dir+self.project_name+'/fit_res_dict/responsivity/responsivity-powers-'+self.data_type+'.npy')
 
         rc('font', family='serif', size='16')
         ioff()
@@ -1317,8 +1327,8 @@ class Homodyne:
 
                 ax_kid.loglog(f_nep, NEP, label=tmp)
 
-                np.save(self.work_dir+self.project_name+'/fit_res_dict/nep-'+kid+'-'+tmp+'-'+att, [f_nep, NEP])
-                np.save(self.work_dir+self.project_name+'/fit_res_dict/neps_pts-'+kid+'-'+tmp+'-'+att, [fixed_freqs, NEPs])
+                np.save(self.work_dir+self.project_name+'/fit_res_dict/nep/nep-'+kid+'-'+tmp+'-'+att, [f_nep, NEP])
+                np.save(self.work_dir+self.project_name+'/fit_res_dict/nep/neps_pts-'+kid+'-'+tmp+'-'+att, [fixed_freqs, NEPs])
 
             ax_kid.set_title(kid)
             ax_kid.set_xlabel('Frequency [MHz]')
@@ -1535,10 +1545,10 @@ class Homodyne:
             df_low, didq_mag_low = self.calculate_df(I_low_f, Q_low_f, hdr_low)
 
             fs = hdr_low['SAMPLERA']
-            print(fs)
             f0 = hdr_low['SYNTHFRE']
-            print(f0)
-            freq_low, psd_low = get_psd(np.array(df_low)/f0, fs)
+            print('Sample frequency: ', fs)
+            print('Resonance frequency: ', f0)
+            freq_low, psd_low = get_psd(np.array(df_low), fs)
 
             # High-frequency PSD
             I_high = self.data['ts'][kid][temp][atten]['I_'+mode][1]
@@ -1555,9 +1565,10 @@ class Homodyne:
             df_high, didq_mag_high = self.calculate_df(I_high_f, Q_high_f, hdr_high)
 
             fs = hdr_high['SAMPLERA']
-            print(fs)
             f0 = hdr_high['SYNTHFRE']
-            freq_high, psd_high = get_psd(np.array(df_high)/f0, fs)
+            print('Sample frequency: ', fs)
+            print('Resonance frequency: ', f0)
+            freq_high, psd_high = get_psd(np.array(df_high), fs)
 
             f, psd = mix_psd([freq_low, freq_high], [psd_low, psd_high])
 
@@ -1983,6 +1994,7 @@ class Homodyne:
                         """
                         
                     else:
+                        print(qi_err, qc_err, qr_err)
                         ax_qi[j, i].errorbar(atts_num, qi, yerr=qi_err, color=cmap_obj(norm_color(k_color)), marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
                         ax_qi[j, i].plot(atts_num, qi, 's', label=kid, color=cmap_obj(norm_color(k_color)), linestyle=lstyle[lstyle_pointer])
 

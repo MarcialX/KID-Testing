@@ -25,8 +25,8 @@ rc('font', family='serif', size='14')
 sys.path.append('../KID-Testing')
 from homodyne import *
 
-project_name = 'ALH-Ti10Al30-etch_cl-2105241100'
-data_path = "/home/marcial/detdaq/2105241100-Ti10Al30_ClEtch/20240603_Dark_Data_Auto/"
+project_name = 'ANL-TG-TopRight'
+data_path = "/home/marcial/detdaq/0506241200_TG_TopRight/20240715_Blackbody_Data_Auto/"
 
 h = Homodyne(data_path, only_vna=True, proj_name=project_name)
 

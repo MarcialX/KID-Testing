@@ -121,11 +121,15 @@ for s, step in enumerate(TASKS):
     # ---------------------------------
     # ---> Fit resonator
     if task_name == "fit_res":
-        
-        type_data = task_params['type']
-        n = task_params['n']
-        complete = task_params['complete']
 
+        the_args = {}
+        # Plot all the S21 for all the KIDs
+        for p in task_params.keys():
+            if p == 'n':
+                the_args['n'] = task_params['n']            
+            elif p == 'df':
+                the_args['complete'] = task_params['complete']      
+        
         if KIDS == "all":
             kids = None 
         kid = 'K000'
@@ -149,8 +153,10 @@ for s, step in enumerate(TASKS):
                     samples = SAMPLES
 
                 for sample in samples:
+                    print('*********************************')
+                    print('Y la muestra es: ', sample, samples)
                     if type_data == 'vna':
-                        h.fit_vna_resonators(kids, temp, atten, sample=sample, n=n, complete=complete, verbose=True)
+                        h.fit_vna_resonators(kids, temp, atten, sample=sample, verbose=True, **the_args)
 
     # ---> Load fit
     elif task_name == "load_fit_res":
