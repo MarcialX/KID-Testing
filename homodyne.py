@@ -680,7 +680,6 @@ class Homodyne:
                 tot_cnt += 1
 
         self._create_od_fig(fig, ax)
-
         ion()
 
     def _create_od_fig(self, fig, ax):
@@ -743,6 +742,25 @@ class Homodyne:
     def find_kids(self, f, s21, down_factor=35, baseline_params=(501, 5), Qr_lim=[1500, 150000], Qc_lim=[1000, 150000], inter=True):
         """
         Find resonators from the VNA sweep.
+        Parameters
+        ----------
+        f : array
+            Frequency array.
+        s21 : array
+            S21 array.
+        down_factor : int
+            Downsampling factor to smooth data and extract baseline.
+        baseline_params : tuple
+            Savinsky-Golay filter:
+                idx 0: Number of points.
+                idx 1: Order.
+        Qr_lim : list
+            Qr upper(1) and lower(0) limits. 
+        Qc_lim : list
+            Qc upper(1) and lower(0) limits.
+        inter : bool
+            Interactive mode. 
+        ----------
         """
 
         # 1. Invert the S21 sweep
@@ -784,16 +802,11 @@ class Homodyne:
             ar, ai, Qr, fr, Qc, phi = coarse_fit(fsm, s21_sm, tau=50e-9)
 
             if (Qr > Qr_lim[0] and Qr < Qr_lim[1]) and (Qc > Qc_lim[0] and Qc < Qc_lim[1]):
-                #axvline(f[peak], color='r')
                 flags.append(True)
             else:
-                #axvline(f[peak], color='k', lw=0.5)
                 flags.append(False)
 
             nw_peaks.append(peak)
-
-        #xlabel('Frequency[MHz]')
-        #ylabel('S21[dB]')
 
         # Interactive mode
         if inter:
