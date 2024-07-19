@@ -565,9 +565,6 @@ class Homodyne:
                         samples = self.data['vna'][kid][tmp][att]['fit'].keys()
                         for item in ['ar', 'ai', 'fr', 'Qr', 'Qc', 'Qi', 'phi', 'non']:
 
-                            #cnt = 0
-                            #sum_r = 0
-                            #sqr_err_r = 0
                             values = []
                             for sample in samples:
                                 if isinstance(sample, int):
@@ -575,27 +572,29 @@ class Homodyne:
                                     value = self.data['vna'][kid][tmp][att]['fit'][sample][item]
                                     values.append(value)
 
-                                    #err_val = self.data['vna'][kid][temp][atten]['fit'][sample][item+'_err']
-                                    #sum_r += value
-                                    #sqr_err_r += err_val**2
-                                    #cnt += 1
-
                             self.data['vna'][kid][tmp][att]['fit'][item] = np.mean(values)
                             self.data['vna'][kid][tmp][att]['fit'][item+'_err'] = np.std(values)
-
-                            #val_q = sum_r/cnt
-                            #err_q = (1/cnt)*np.sqrt(sqr_err_r)
 
                     except:
                         print('No fit in: ', kid, tmp, att)
 
-    def find_overdriven_atts(self, temp, sample=0, thresh=0.7, inter=False):
+    def find_overdriven_atts(self, temp, sample=0, thresh=0.7):
         """
-        Find the pre-overdriven attenuations given the fit results + manual selection (opt).
+        Find the pre-overdriven attenuations given the fit results + manual selection.
+        Parameters
+        ----------
+        temp : int, string
+            Temperature. If 'None' it will take all the temperatures.
+        sample : int
+            Sample number. If 'None' take all the samples/repeats.
+        thresh : float
+            Non-linearity threshold to define an overdriven state.
+        ----------
         """
+        ioff()
+        
         # Select all the KIDs
         kids = self._get_kids_to_sweep(None)
-        
         # Temporal overdriven atts
         self.temp_att = np.zeros_like(kids, dtype=float)
 
@@ -603,7 +602,6 @@ class Homodyne:
         fig_cnt = -1
         tot_cnt = 0
         self.n_fig_od = 0
-        ioff()
         for k, kid in enumerate(kids):
             # Select all the attenuations
             tmp = self._get_temps_to_sweep(temp, kid)[0]
@@ -665,11 +663,6 @@ class Homodyne:
 
                     ax[jj,ii].patch.set_alpha(0.2)
 
-                    #if idx_map == idx:
-                    #    text_size = 18
-                    #    box_color = 'cyan'
-                    #    text_color = 'black'
-                    #else:
                     text_size = 14
                     text_color = 'white'
                     box_color = 'purple'
