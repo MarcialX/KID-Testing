@@ -21,7 +21,7 @@ from matplotlib.pyplot import *
 class fit_spectral_noise():
     """
     Get the model which match the PSD noise.
-    A hundred percent based in PhD Sam Rowe code
+    A hundred percent based in Sam Rowe code
     """
     def fit_kid_psd(self, ori_freqs, psd_freqs, psd_df, kid_f0, kid_qr, amp_noise,
                     gr_guess=None, tauqp_guess=None, tlsa_guess=None,  tlsb_guess=-0.5,
@@ -65,7 +65,6 @@ class fit_spectral_noise():
         (gr_noise,tau_qp,tls_a,tls_b) = pval
 
         fit_PSD = combined_model(ori_freqs, gr_noise, tau_qp, tls_a, tls_b)
-        print(tls_a, tls_b)
 
         return gr_noise, tau_qp, amp_noise, tls_a, tls_b, fit_PSD
 
@@ -151,8 +150,6 @@ class fit_spectral_noise():
 
         if sigma is None:
             sigma = (1 / abs(np.gradient(psd_freqs)))
-
-        #print sigma
 
         pval, pcov = curve_fit(combined_model_q, psd_freqs, psd_df, guess, bounds=bounds, sigma=sigma)
         (gr_noise,tau_qp,tls_a,tls_b,Q_r) = pval

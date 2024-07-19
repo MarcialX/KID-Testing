@@ -262,11 +262,6 @@ def get_homodyne_data(directory, avoid=[[], []]):
     # Get filenames
     sweep_path, sweep_hr_path, timestream_on, timestream_off = get_homodyne_filenames(directory)
 
-    print(sweep_path)
-    print(sweep_hr_path)
-    print(timestream_on)
-    print(timestream_off)
-
     # Get sweep: header and data
     sweep_fits = fits.getdata(os.path.join(directory, sweep_path))
     sweep_hdul = fits.open(os.path.join(directory, sweep_path))

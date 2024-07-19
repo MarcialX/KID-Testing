@@ -199,8 +199,7 @@ class Homodyne:
                             nz = 4
                         else:
                             nz = 3
-                        print(self.data_type)
-                        print(nz)
+
                         temp = temp_prefix + subdiry.split('_')[2].zfill(nz)
 
                         data['ts'][kid][temp] = {}
@@ -441,8 +440,8 @@ class Homodyne:
 
                 e1 = -Qr**2/(Qc-Qr)**2
                 e2 = Qc**2/(Qc-Qr)**2
-                print('Qi_error')
-                print(np.sqrt( (e1*Qc_err)**2 + (e2*Qr_err)**2 ))
+
+                print('Qi_error: ', np.sqrt( (e1*Qc_err)**2 + (e2*Qr_err)**2 ))
                 self.data['vna'][kid][temp][atten]['fit'][sample]['Qi_err'] = np.sqrt( (e1*Qc_err)**2 + (e2*Qr_err)**2 )
 
             except:
@@ -581,13 +580,6 @@ class Homodyne:
                                     #sqr_err_r += err_val**2
                                     #cnt += 1
 
-                            """
-                            print('******************************')
-                            print(item)
-                            print('mean:', np.mean(values))
-                            print('std:', np.std(values))
-                            """
-
                             self.data['vna'][kid][tmp][att]['fit'][item] = np.mean(values)
                             self.data['vna'][kid][tmp][att]['fit'][item+'_err'] = np.std(values)
 
@@ -716,7 +708,6 @@ class Homodyne:
         for i in range(6):
             for j in range(5):
                 if event.inaxes == self.ax_od[i, j]:
-                    #print ("event in ", i, j)
                     if self.over_atts_mask[i, j]:
                         self.update_overdriven_plot(i, j)
                         self.temp_att[self.n_fig_od*6+i] = self.over_atts_mtx[i, j]
@@ -754,7 +745,6 @@ class Homodyne:
                     self.update_overdriven_plot(i, 2)
                     self.temp_att[self.n_fig_od*6+i] = self.over_atts_mtx[i, 2]
 
-                #print(self.temp_att)
                 msg('Undoing changes', 'info')
 
     def find_kids(self, f, s21, down_factor=35, baseline_params=(501, 5), Qr_lim=[1500, 150000], Qc_lim=[1000, 150000], inter=True):
@@ -959,9 +949,6 @@ class Homodyne:
         Divide the VNA by the found detectors. Under construction...
         """
 
-        temps = self._get_temps_to_sweep(temp, vna_type='con')
-        print(temps)
-
         """
         df = np.mean(np.diff(f))
         for kid, freq in enumerate(self.found_kids):
@@ -1005,7 +992,7 @@ class Homodyne:
                 for att in attens:
                     self.get_psd_on_off(kid, tmp, att, ignore=ignore, fit=fit_psd, plot_fit=plot_fit)
 
-    def get_responsivity(self, kid, temp_conv='Nqp', material='Al', dims=[1,1,1], nu=35e9, var='fr', sample=0, flag_kid=[], custom=None, data_source='vna', diry_fts='/home/marcial/Homodyne-project/FFT-ANL-SLIM-SO-23', from_fit=False, method='min', pwr_method='bandwidth', plot_res=True):
+    def get_responsivity(self, kid, temp_conv='Nqp', material='Al', dims=[1,1,1], nu=35e9, var='fr', sample=0, flag_kid=[], custom=None, data_source='vna', diry_fts="", from_fit=False, method='min', res_method="grad", pwr_method='bandwidth', plot_res=True):
         """
         Get responsivity
         Parameters
@@ -1112,7 +1099,6 @@ class Homodyne:
                             else:
                                 x = self.data['ts'][kid][tm][att]['fit_psd']['params'][var]
                     else:
-                        print(kid, tm, att)
                         if method == 'min':
                             f, s21 = self.data['vna'][kid][tm][att]['data'][sample]
                             x = f[np.argmin(20*np.log10(np.abs(s21)))]
@@ -1152,29 +1138,30 @@ class Homodyne:
                         msg('Nqp: '+str(Nqp), 'info')
 
                 power = np.array(power)
-                #print(power)
 
                 # Get the responsivity
                 # ------------------------------------------------------------------
                 if temp_conv == 'power':
-                    popt, pcov = curve_fit(f0_vs_pwr_model, power, xs, p0=[1e4, -0.5])
-                    a, b = popt
-                    dF0_dP = a*b*power**(b-1)
-
-                    """
-                    b0 = f0_vs_pwr_model(power, a, b) - power*dF0_dP
-                    P_fit = np.linspace(power[0], power[-2], 1000)
-                    figure(kid)
-                    plot(power, f0_vs_pwr_model(power, *popt), 'rs-', label='fit')
-                    plot(power, xs, 'bs')
-                    for f in range(len(dF0_dP)):
-                        print('plotting')
-                        plot(P_fit, P_fit*dF0_dP[f] + b0[f], 'k-')
-                    show()
-                    """
                     
-                    # Get the tangent
-                    dF0_dP = np.gradient(xs, power)
+                    if res_method == "fit":
+                        popt, pcov = curve_fit(f0_vs_pwr_model, power, xs, p0=[1e4, -0.5])
+                        a, b = popt
+                        dF0_dP = a*b*power**(b-1)
+
+                        """
+                        b0 = f0_vs_pwr_model(power, a, b) - power*dF0_dP
+                        P_fit = np.linspace(power[0], power[-2], 1000)
+                        figure(kid)
+                        plot(power, f0_vs_pwr_model(power, *popt), 'rs-', label='fit')
+                        plot(power, xs, 'bs')
+                        for f in range(len(dF0_dP)):
+                            print('plotting')
+                            plot(P_fit, P_fit*dF0_dP[f] + b0[f], 'k-')
+                        show()
+                        """
+
+                    elif res_method == "grad":
+                        dF0_dP = np.gradient(xs, power)
 
                     S[k] = dF0_dP
 
@@ -1191,7 +1178,6 @@ class Homodyne:
 
             except Exception as e:
                 print(e)
-                #S[k, t] = None
 
             """
             # P O W E R
@@ -1230,7 +1216,6 @@ class Homodyne:
                         ax.plot(power, xs_plot, label=kid, linestyle=lsty, marker=mk, color=color)
 
                     else:
-                        print(power, xs_plot)
                         ax.plot(power, xs_plot, label=kid, linestyle=lstyle[lstyle_pointer], marker=lmarker[lstyle_pointer])
 
                     if temp_conv == 'power':
@@ -1246,8 +1231,6 @@ class Homodyne:
 
         #np.save(self.work_dir+self.project_name+'/fit_psd_dict/psd-'+name, self.data['ts'][kid][temp][atten]['psd'])
         #np.save(self.work_dir+self.project_name+'/fit_psd_dict/fit_psd-'+name, self.data['ts'][kid][temp][atten]['fit_psd'])
-
-        print(S)
 
         np.save(self.work_dir+self.project_name+'/fit_res_dict/responsivity/responsivity-'+self.data_type, S)
         np.save(self.work_dir+self.project_name+'/fit_res_dict/responsivity/responsivity-powers-'+self.data_type, pwrs)
@@ -1293,8 +1276,6 @@ class Homodyne:
             for t, tmp in enumerate(temps):
                 
                 att = self._get_atten_to_sweep(self.overdriven[k], tmp, kid, mode='ts')[0]
-
-                print(temp, att)
                 f_nep, psd_nep = self.data['ts'][kid][tmp][att]['fit_psd']['psd']
 
                 # Noise params
@@ -1304,9 +1285,6 @@ class Homodyne:
                 # Resonator params
                 f0 = self.data['vna'][kid][tmp][att]['fit']['fr']
                 Qr = self.data['vna'][kid][tmp][att]['fit']['Qr']  
-
-                print('mmmmmmmmmmmmmmmmmmm')
-                print(tqp, S[k][t], Qr, f0)      
 
                 NEP = self.get_NEP(f_nep, psd_nep, tqp, S[k][t], Qr, f0)
 
@@ -1318,8 +1296,6 @@ class Homodyne:
                 ax_neps.plot(pwrs[k][t], NEPs[0], 'rs-')
                 ax_neps.plot(pwrs[k][t], NEPs[1], 'gD-')
                 ax_neps.plot(pwrs[k][t], NEPs[2], 'bo-')
-
-                print(NEPs)
 
                 if tmp == fixed_temp:
                     temp_NEP = NEP
@@ -1575,8 +1551,7 @@ class Homodyne:
             return f, psd, (df_low, df_high)
 
         except Exception as e:
-            msg('Data not available', 'fail')
-            print(e)
+            msg('Data not available.\n'+str(e), 'fail')
             return -1
 
     def despike(self, kid=None, temp=None, atten=None, ignore=[[0,1], [0]], win_size=350, sigma_thresh=3.5, peak_pts=4, **kwargs):
@@ -1606,8 +1581,6 @@ class Homodyne:
         verbose = kwargs.pop('verbose', False)
 
         kids = self._get_kids_to_sweep(kid, mode='ts')
-        print(kids)
-
         for kid in kids:
             print(kid)
             temps = self._get_temps_to_sweep(temp, kid, mode='ts')
@@ -1691,8 +1664,7 @@ class Homodyne:
                 self.data['vna'][kid][temp][atten]['fit'][ns] = sample
 
             except Exception as e:
-                print('Resonator fit. Fail loading '+f)
-                print(str(e))
+                print('Resonator fit. Fail loading '+f+'\n'+str(e))
 
     def load_psd(self, folder):
         """
@@ -1716,8 +1688,6 @@ class Homodyne:
             atten = split_name[3]
             ns = int((f.split('-')[-1][1:]).split('.')[0])
 
-            print(kid, temp, atten)
-
             try:
                 if file_type == 'fit_psd':
                     fit_sample = np.load(folder+'/fit_psd_dict/'+f, allow_pickle=True).item()
@@ -1727,8 +1697,7 @@ class Homodyne:
                     self.data['ts'][kid][temp][atten]['psd'] = psd_sample
 
             except Exception as e:
-                print('PSD fit. Fail loading '+f)
-                print(str(e))
+                print('PSD fit. Fail loading '+f+'\n'+str(e))
 
     def vna_xls_report(self, name=None):
         """
@@ -1736,7 +1705,7 @@ class Homodyne:
         Parameters
         ----------
         name  : string
-            Folder nm
+            File name.
         ----------
         """
 
@@ -1994,7 +1963,6 @@ class Homodyne:
                         """
                         
                     else:
-                        print(qi_err, qc_err, qr_err)
                         ax_qi[j, i].errorbar(atts_num, qi, yerr=qi_err, color=cmap_obj(norm_color(k_color)), marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
                         ax_qi[j, i].plot(atts_num, qi, 's', label=kid, color=cmap_obj(norm_color(k_color)), linestyle=lstyle[lstyle_pointer])
 
@@ -2343,7 +2311,6 @@ class Homodyne:
             else:
                 axm[j,i].axis('off')
 
-            print(xg*yg, k)
             if k == len(kids)-1:
                 axm[j,i].legend(ncol=2)
 
@@ -2679,8 +2646,7 @@ class Homodyne:
             return vna_type, temp, temp_units, atten, number_sample
 
         except ValueError as e:
-            print(e)
-            msg('Data not identified in the name file', 'fail')
+            msg('Data not identified in the name file.\n'+str(e), 'fail')
 
         return None, None, None
 

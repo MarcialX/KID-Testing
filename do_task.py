@@ -84,8 +84,6 @@ except Exception as e:
     msg('Fail loading general params file. '+str(e), 'fail')
 
 
-print(gral_params)
-
 data_path = gral_params['DATA_FOLDER']
 project_name = gral_params['PROJECT_NAME']
 project_path = gral_params['PROJECT_FOLDER']
@@ -133,7 +131,6 @@ for s, step in enumerate(TASKS):
         if KIDS == "all":
             kids = None 
         kid = 'K000'
-        print(kids)
 
         if TEMPS == "all":
             tmps = list(h.data[type_data][kid].keys())
@@ -153,8 +150,6 @@ for s, step in enumerate(TASKS):
                     samples = SAMPLES
 
                 for sample in samples:
-                    print('*********************************')
-                    print('Y la muestra es: ', sample, samples)
                     if type_data == 'vna':
                         h.fit_vna_resonators(kids, temp, atten, sample=sample, verbose=True, **the_args)
 
