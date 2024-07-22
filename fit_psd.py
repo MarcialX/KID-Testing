@@ -85,6 +85,57 @@ class fit_psd(object):
         n_psd = np.array(n_psd)
 
         return n_freq, n_psd
+    
+    def log_binning(self, freq_psd, psd, n_pts=200):
+        """
+        Logarithmic binning for PSD.
+        Parameters
+        -----------
+        freq_psd : array
+            Frequency [Hz].
+        psd : array
+            Power Spectral Density [Hz²/Hz].
+        n_pts : int
+            Number of points.
+        -----------
+        """
+
+        start = freq_psd[0]
+        stop = freq_psd[-1]
+        """
+        n = 0
+        central_pts = []
+        for i in range(n_pts+1):
+            if int(n**2) > len(freq_psd):
+                break
+            else:
+                central_pts.append(freq_psd[int(n**2)])
+            n += 1
+        central_pts = np.array(central_pts)
+        """
+        """
+        if n_pts > len(central_pts):
+            tot_pts = len(central_pts)
+        else:
+            tot_pts = n_pts
+        """
+        central_pts = np.logspace(np.log10(start), np.log10(stop), n_pts+1)
+       
+        n_freq = []
+        n_psd = []
+        for i in range(n_pts):
+            idx_start = np.where(freq_psd > central_pts[i])[0][0]
+            idx_stop = np.where(freq_psd <= central_pts[i+1])[0][-1] + 1
+
+            if not np.isnan(np.mean(freq_psd[idx_start:idx_stop])):
+                n_freq.append(np.mean(freq_psd[idx_start:idx_stop]))
+                n_psd.append(np.median(psd[idx_start:idx_stop]))
+
+        n_freq = np.array(n_freq)
+        n_psd = np.array(n_psd)
+
+        return n_freq, n_psd
+
 
     def get_psd_fit(self, freq_psd, psd, f0_fits, Q, amp_noise):
         """
@@ -106,7 +157,8 @@ class fit_psd(object):
         """
 
         # Apply linear binning
-        n_freq, n_psd = self.lin_binning(freq_psd, psd, w=self.lin_bin_size)
+        #n_freq, n_psd = self.lin_binning(freq_psd, psd, w=self.lin_bin_size)
+        n_freq, n_psd = self.log_binning(freq_psd, psd)
 
         # Fit PSD curve
         gr_noise_s, amp_noise_s, tau_s, tls_a_s, tls_b_s, fit_PSD_s = self.fit_spectra_noise(freq_psd, n_freq, 
@@ -215,7 +267,7 @@ class fit_psd(object):
         # Plot raw PSD
         self._ax.semilogx(freq_psd, 10*np.log10(psd), 'c')
         # Plot binned data
-        n_freq, n_psd = self.lin_binning(freq_psd, psd, w=self.lin_bin_size)
+        n_freq, n_psd = self.log_binning(freq_psd, psd)
         self._ax.semilogx(n_freq, 10*np.log10(n_psd), 'r', lw=1)
         # Plot fitted data
         self._ax.semilogx(freq_psd, 10*np.log10(psd_fit), 'k')
