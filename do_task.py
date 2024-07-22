@@ -269,13 +269,15 @@ for s, step in enumerate(TASKS):
                 the_args['peak_pts'] = task_params['peak_pts']
             elif p == 'plot_ts':
                 flag_plot_ts = task_params['plot_ts']
+            elif p == 'plot_atts':
+                plot_args['atten'] = task_params['plot_atts']
             elif p == 'cmap':
                 plot_args['cmap'] = task_params['cmap']
 
         h.despike(kids, temps, atts, **the_args)
 
         if flag_plot_ts:
-            h.plot_ts_summary(kids, temps, atts, **plot_args)
+            h.plot_ts_summary(kids, temps, **plot_args)
 
     # ---> Get the PSDs
     elif task_name == "get_psd":

@@ -84,7 +84,6 @@ class Homodyne:
     ----------
     """
     def __init__(self, diry, *args, **kwargs):
-
         # Key arguments
         # ----------------------------------------------
         # Project name
@@ -363,7 +362,6 @@ class Homodyne:
             Window size to fit. By default it is 3.5.
         ----------
         """
-
         # Key arguments
         # ----------------------------------------------
         # Cable delay
@@ -810,7 +808,7 @@ class Homodyne:
 
         # Interactive mode
         if inter:
-            self.interactive_mode(f, s21, nw_peaks, flags)
+            self.interactive_mode_find_kids(f, s21, nw_peaks, flags)
         else:
             sel_peaks = []
             for p, peak in enumerate(nw_peaks):
@@ -818,8 +816,11 @@ class Homodyne:
                     sel_peaks.append(f[peak])
             self.found_kids = sel_peaks
 
-    # Interactive mode to clean psd data
-    def interactive_mode(self, f, s21, peaks, flags):
+    def interactive_mode_find_kids(self, f, s21, peaks, flags):
+        """
+        Interactive mode to clean psd data.
+        """
+
         # Create figures
         self._fig = figure()
         self._ax = self._fig.add_subplot(111)
@@ -837,15 +838,17 @@ class Homodyne:
         self._peaks_backup = np.copy(peaks)
         self._flags_backup = np.copy(flags)
 
-        self.update_plot(self._freq, self._s21, self._peaks, self._flags)
+        self.update_plot_find_kids(self._freq, self._s21, self._peaks, self._flags)
 
-        self._onclick_xy = self._fig.canvas.mpl_connect('button_press_event', self._onclick)
-        self._keyboard = self._fig.canvas.mpl_connect('key_press_event', self._key_pressed)
+        self._onclick_xy = self._fig.canvas.mpl_connect('button_press_event', self._onclick_find_kids)
+        self._keyboard = self._fig.canvas.mpl_connect('key_press_event', self._key_pressed_find_kids)
 
         show()
 
-    # Update plot
-    def update_plot(self, freq, s21, peaks, flags):
+    def update_plot_find_kids(self, freq, s21, peaks, flags):
+        """
+        Update finding KIDs plot.
+        """
         # Plot original and fit
         self._ax.semilogx(freq, 20*np.log10(np.abs(s21)), 'b')
 
@@ -865,8 +868,7 @@ class Homodyne:
         self._ax.set_xlabel(r'Frequency [Hz]')
         self._ax.set_ylabel(r'S21 [dB]')
 
-    # Key pressed
-    def _key_pressed(self, event):
+    def _key_pressed_find_kids(self, event):
         """
         Keyboard event to save/discard line fitting changes
         """
@@ -875,7 +877,7 @@ class Homodyne:
 
             if event.key == 'x':
                 self._fig.canvas.mpl_disconnect(self._onclick_xy)
-                self._fig.canvas.mpl_disconnect(self._key_pressed)
+                self._fig.canvas.mpl_disconnect(self._key_pressed_find_kids)
                 close(self._fig)
 
                 # Save data
@@ -888,19 +890,19 @@ class Homodyne:
 
             elif event.key == 'u':
                 cla()
-                self.update_plot(self._freq, self._s21, self._peaks, self._flags)
+                self.update_plot_find_kids(self._freq, self._s21, self._peaks, self._flags)
                 self._fig.canvas.draw_idle()
 
             elif event.key == 'a':
                 self._mode = True
                 cla()
-                self.update_plot(self._freq, self._s21, self._peaks, self._flags)
+                self.update_plot_find_kids(self._freq, self._s21, self._peaks, self._flags)
                 self._fig.canvas.draw_idle()
 
             elif event.key == 'r':
                 self._mode = False
                 cla()
-                self.update_plot(self._freq, self._s21, self._peaks, self._flags)
+                self.update_plot_find_kids(self._freq, self._s21, self._peaks, self._flags)
                 self._fig.canvas.draw_idle()
 
             elif event.key == 'd':
@@ -909,11 +911,11 @@ class Homodyne:
                 self._peaks = self._peaks_backup
                 self._flags = self._flags_backup
                 cla()
-                self.update_plot(self._freq, self._s21, self._peaks, self._flags)
+                self.update_plot_find_kids(self._freq, self._s21, self._peaks, self._flags)
                 self._fig.canvas.draw_idle()
                 msg('Undoing changes', 'info')
 
-    def _onclick(self, event, thresh=5e4):
+    def _onclick_find_kids(self, event, thresh=5e4):
         """
         On click event to select lines
         """
@@ -947,7 +949,7 @@ class Homodyne:
                     self._fig.canvas.draw_idle()
                 else:
                     cla()
-                    self.update_plot(self._freq, self._s21, self._peaks, self._flags)
+                    self.update_plot_find_kids(self._freq, self._s21, self._peaks, self._flags)
                     self._fig.canvas.draw_idle()
 
     def split_continuous_by_kid(self, temp=None, atten=None, lws=6, Qr=1000):
@@ -974,8 +976,17 @@ class Homodyne:
     def get_all_psd(self, kid, temp, atten, **kwargs):
         """
         Get the PSD for all the kid/temp/atten defined.
+        Parameters
+        ----------
+        kid : int, string
+            KID ID. If 'None' it will take all the resonators.
+        temp : int, string
+            Temperature. If 'None' it will take all the temperatures, whether base
+            temperatura or Blackbody temperature.
+        atten : string
+            Attenuation. If 'None' it will select all the attenuations.
+        ----------
         """
-
         # Key arguments
         # ----------------------------------------------
         # Timestreams to ignore
@@ -989,7 +1000,6 @@ class Homodyne:
         kids = self._get_kids_to_sweep(kid, mode='ts')
         for kid in kids:
             msg(kid, 'info')
-            print('***************************************')
 
             temps = self._get_temps_to_sweep(temp, kid, mode='ts')
             for tmp in temps:
@@ -998,7 +1008,9 @@ class Homodyne:
                 for att in attens:
                     self.get_psd_on_off(kid, tmp, att, ignore=ignore, fit=fit_psd, plot_fit=plot_fit)
 
-    def get_responsivity(self, kid, temp_conv='Nqp', material='Al', dims=[1,1,1], nu=35e9, var='fr', sample=0, flag_kid=[], custom=None, data_source='vna', diry_fts="", from_fit=False, method='min', res_method="grad", pwr_method='bandwidth', plot_res=True):
+    def get_responsivity(self, kid, temp_conv='Nqp', var='fr', sample=0, material='Al', dims=[1,1,1],  \
+                        nu=35e9, flag_kid=[], custom=None, data_source='vna', diry_fts="", from_fit=False, \
+                        method='min', res_method="grad", pwr_method='bandwidth', plot_res=True):
         """
         Get responsivity
         Parameters
@@ -1007,8 +1019,8 @@ class Homodyne:
             KID IDs. If 'None' it will take all the resonators.
         temp_conv(opt) : string
             Convert temperature to a defined parameter.
-            If 'None', use temperature as itself.
-               'Nqp' convert to number of quasiparticles.
+                'power': get power in W.
+                'Nqp' : get number of quasiparticles.
         var(opt) : string
             Parameter to evaluate the responsivity:
             'fr'(default): Resonance frequency
@@ -1019,10 +1031,10 @@ class Homodyne:
             Sample number. If 'None' take all the samples/repeats.
         material(opt) : string
             Defined material. Only necessary for Nqp calculation.
-        V(opt) : float
-            Device volume[um³].
+        dims(opt) : list
+            Device dimensions in um to get the Volume in um³.
         nu(opt) : float
-            Bandwidth.
+            Bandwidth. Only use to get power if pwr_method is 'bandwidth'.
         flag_kid(opt) : list
             List of detectors to flag.
         custom(opt) : dict
@@ -1037,8 +1049,16 @@ class Homodyne:
             'False'. If var == 'fr', it gets the fr according to the 'method' defined.
         method(opt) : string
             Method to get the resonance frequency 'fr'.
+        pwr_method(opt) : string
+            Method to get the power if temp_conv = 'power'. 
+            'fts' : from a spectrum defined in diry_fts.
+            'bandwidth' : from a defined bandwidth.
+        res_method(opt) : string
+            Method to get responsivity:
+            'grad' : from the gradient
+            'fit' : fitting the curve aP**b.
         plot_res(opt) : bool
-            Plot the responsivity as var vs power/BB/Nqp
+            Plot the responsivity as var vs power/BB/Nqp.
         ----------
         """
 
@@ -1051,10 +1071,8 @@ class Homodyne:
 
         # Get total volume
         V = float(dims[0])*float(dims[1])*float(dims[2]) 
-
+        # Select the pre-overdriven attenuation.
         atten = self.overdriven
-
-        lstyle_pointer = 0
 
         if self.data_type.lower() == 'dark':
             temp_field = 'SAMPLETE'
@@ -1068,8 +1086,10 @@ class Homodyne:
 
         tot_kids = len(self._get_kids_to_sweep(None))
         tot_temps = len(self._get_temps_to_sweep(None, kids[0]))
+
         S = np.zeros((tot_kids, tot_temps))
         pwrs = np.zeros((tot_kids, tot_temps))
+        
         if plot_res:
             rc('font', family='serif', size='16')
             fig, ax = subplots(1,1, figsize=(15,9))
@@ -1099,6 +1119,7 @@ class Homodyne:
                                     x = None
                             else:
                                 x = self.data['vna'][kid][tm][att]['fit'][var]
+                                print('Taken from the fit')
                         elif data_source == 'homo':
                             if var == 'fr':
                                 x = self.data['ts'][kid][tm][att]['fit'][var]
@@ -1111,8 +1132,8 @@ class Homodyne:
 
                     xs[t] = x
 
-                except:
-                    pass
+                except Exception as e:
+                    msg('Reading responsivity variable.\n'+str(e), 'warn')
 
                 real_temp[t] = float(self.data['vna'][kid][tm][att]['header'][0][temp_field])
 
@@ -1173,17 +1194,20 @@ class Homodyne:
 
                 elif temp_conv == 'Nqp':
 
-                    #plot(power, xs, 'rs-')
                     dF0_dNqp, b = np.polyfit(power[2:], xs[2:], 1)
                     Nqps_fit = np.linspace(power[0], power[-1], 1000)
-                    #plot(Nqps_fit, Nqps_fit*dF0_dNqp + b, 'k')
-
+                    
+                    """
+                    plot(power, xs, 'rs-')
+                    plot(Nqps_fit, Nqps_fit*dF0_dNqp + b, 'k')
+                    """
+                    
                     S[k] = dF0_dNqp
 
                 pwrs[k] = power
 
             except Exception as e:
-                print(e)
+                msg(str(e), 'warn')
 
             """
             # P O W E R
@@ -1204,6 +1228,7 @@ class Homodyne:
             """
 
             if plot_res:
+                lstyle_pointer = 0
                 if k%10 == 0:
                     lstyle_pointer += 1
                 if var == 'fr':
@@ -1214,13 +1239,11 @@ class Homodyne:
                     ax.set_ylabel(var, fontsize=18, weight='bold')
 
                 if not np.sum([np.isnan(i) for i in xs_plot]) == len(xs_plot):
-
                     if not custom is None:
                         color = custom[0][k]
                         mk = custom[1][k]
                         lsty = custom[2][k]
                         ax.plot(power, xs_plot, label=kid, linestyle=lsty, marker=mk, color=color)
-
                     else:
                         ax.plot(power, xs_plot, label=kid, linestyle=lstyle[lstyle_pointer], marker=lmarker[lstyle_pointer])
 
@@ -1228,26 +1251,28 @@ class Homodyne:
                         ax.set_xlabel('Power [W]', fontsize=18, weight='bold')
                     elif temp_conv == 'Nqp':
                         ax.set_xlabel('Nqp', fontsize=18, weight='bold')
+
                     ax.legend(ncol=2)
 
         if plot_res:
             show()
-
             fig.savefig(self.work_dir+self.project_name+'/fit_res_dict/responsivity/responsivity-'+self.data_type+'.png')
 
-        #np.save(self.work_dir+self.project_name+'/fit_psd_dict/psd-'+name, self.data['ts'][kid][temp][atten]['psd'])
-        #np.save(self.work_dir+self.project_name+'/fit_psd_dict/fit_psd-'+name, self.data['ts'][kid][temp][atten]['fit_psd'])
-
+        # Save results
         np.save(self.work_dir+self.project_name+'/fit_res_dict/responsivity/responsivity-'+self.data_type, S)
         np.save(self.work_dir+self.project_name+'/fit_res_dict/responsivity/responsivity-powers-'+self.data_type, pwrs)
-
-        #return S, pwrs
 
     def get_all_NEP(self, kid, temp, **kwargs):
         """
         Get all the NEP(Noise Equivalent Power).
+        Parameters
+        ----------
+        kid : int, string
+            KID ID. If 'None' it will take all the resonators.
+        temp : int, string
+            Temperature. If 'None' it will take all the temperatures.
+        ----------
         """
-
         # Key arguments
         # ----------------------------------------------
         # Fixed frequencies
@@ -1257,6 +1282,8 @@ class Homodyne:
         # Frequency width
         df = kwargs.pop('df', 0.5)
         # ----------------------------------------------
+        
+        ioff()
 
         NEPs = np.zeros_like(fixed_freqs, dtype=float)
         kids = self._get_kids_to_sweep(kid, mode='ts')
@@ -1266,13 +1293,11 @@ class Homodyne:
         pwrs = np.load(self.work_dir+self.project_name+'/fit_res_dict/responsivity/responsivity-powers-'+self.data_type+'.npy')
 
         rc('font', family='serif', size='16')
-        ioff()
         fig_nep_kids, ax_nep_kids = subplots(1, 1, figsize=(20,12))
         subplots_adjust(left=0.110, right=0.99, top=0.97, bottom=0.07, hspace=0.0, wspace=0.0)
 
         for kid in kids:
             k = int(kid[1:])
-            print('***************************************')
             msg(kid, 'info')
 
             fig_kid, ax_kid = subplots(1, 1, figsize=(20,12))
@@ -1352,14 +1377,11 @@ class Homodyne:
             Quality factor
         f0 : float
             Resonance frequency
-        Delta : float
-            Binding energy
         ----------
         """
-
         # Key arguments
         # ----------------------------------------------
-        # eta
+        # Detector efficiency
         eta = kwargs.pop('eta', 0.6)
         # ----------------------------------------------
 
@@ -1415,7 +1437,6 @@ class Homodyne:
             Plot raw PSD(on-off) + the fit + save graph.
         ----------
         """
-
         # Key arguments
         # ----------------------------------------------
         # Timestreams to ignore
@@ -1425,6 +1446,8 @@ class Homodyne:
         # Plot fit results?
         plot_fit = kwargs.pop('plot_fit', True)
         # ----------------------------------------------
+
+        name = str(kid)+'-'+str(temp)+'-'+str(atten)
 
         f_off, psd_off, df_off = self.calculate_psd(kid, temp, atten, mode='off', ignore=ignore)
         self.data['ts'][kid][temp][atten]['psd'] = {}
@@ -1443,42 +1466,25 @@ class Homodyne:
             self.data['ts'][kid][temp][atten]['fit_psd']['psd'] = [f_nep, psd_nep]
             self.data['ts'][kid][temp][atten]['fit_psd']['k_knee'] = k_knee
 
-        if fit and plot_fit:
+            # Save PSD fit    
+            np.save(self.work_dir+self.project_name+'/fit_psd_dict/fit_psd-'+name, self.data['ts'][kid][temp][atten]['fit_psd'])
 
+        # Save PSDs
+        np.save(self.work_dir+self.project_name+'/fit_psd_dict/psd-'+name, self.data['ts'][kid][temp][atten]['psd'])
+
+        if plot_fit:
             fig, ax = subplots(1,1, figsize=(20,12))
             subplots_adjust(left=0.07, right=0.99, top=0.94, bottom=0.07, hspace=0.0, wspace=0.0)
 
-            # Plot on/off
+            # Plot PSD on/off
             ax.loglog(f_on, psd_on, 'm', lw=0.75, alpha=0.45)
             ax.loglog(f_off, psd_off, 'g', lw=0.75, alpha=0.45)
-
+            # PSD on-off
             ax.loglog(f_nep, psd_nep, lw=1.0)
-            fit_PSD = combined_model(f_nep, fit_psd_params['gr'], fit_psd_params['tau'], fit_psd_params['tls_a'], fit_psd_params['tls_b'], f0, Qr, fit_psd_params['amp_noise'])
-            ax.loglog(f_nep, fit_PSD, 'k', lw=2.5, label='fit')
 
-            # Ruido Generación-Recombinación
-            gr = fit_psd_params['gr']/(1.+(2*np.pi*f_nep*fit_psd_params['tau'])**2) / (1.+(2*np.pi*f_nep*Qr/np.pi/f0)**2)
-            # Ruido TLS
-            tls = fit_psd_params['tls_a']*f_nep**fit_psd_params['tls_b'] / (1.+(2*np.pi*f_nep*Qr/np.pi/f0)**2)
-
-            ax.loglog(f_nep, gr, 'r-', lw=2.5, label='gr noise')
-            ax.text(0.5, gr[0]*1.5, f'GR:{gr[0]:.3f} Hz^2/Hz')
-
-            ax.loglog(f_nep, tls, 'b-', lw=2.5, label='1/f')
-            ax.loglog(f_nep, fit_psd_params['amp_noise']*np.ones_like(f_nep), 'g-', label='amp', lw=2)
-
-            tau = fit_psd_params['tau']
-            ax.text(0.8, 0.8, f'Qr  : {round(Qr,-1):,.0f}\nf0   : {round(f0/1e6,-1):,.0f} MHz\ntau : {tau*1e6:.1f} us\nTLS_b : {fit_psd_params['tls_b']:.1f}', transform=ax.transAxes)
-
-            ax.axhline(fit_psd_params['gr'], color='k', linestyle='dashed', lw=2)
-
-            knee = self.data['ts'][kid][temp][atten]['fit_psd']['k_knee']
-            ax.axvline(knee, color='m', lw=2.5)
-            ax.text(knee, gr[0]*2.5, f'1/f knee: {knee:.1f} Hz')
             ax.set_ylim([1e-3, 1e3])
-
             ax.grid(True, which="both", ls="-")
-            name = str(kid)+'-'+str(temp)+'-'+str(atten)
+
             base_temp = self.data['ts'][kid][temp][atten]['s21_hr']['SAMPLETE']
             ax.set_title('PSD-noise-'+name+'-'+str(base_temp)+' K')
             ax.set_xlabel('Frequency[Hz]')
@@ -1486,11 +1492,32 @@ class Homodyne:
 
             ax.legend()
 
+            if fit:
+                fit_PSD = combined_model(f_nep, fit_psd_params['gr'], fit_psd_params['tau'], fit_psd_params['tls_a'], fit_psd_params['tls_b'], f0, Qr, fit_psd_params['amp_noise'])
+                ax.loglog(f_nep, fit_PSD, 'k', lw=2.5, label='fit')
+
+                # Generation-Recombination
+                gr = fit_psd_params['gr']/(1.+(2*np.pi*f_nep*fit_psd_params['tau'])**2) / (1.+(2*np.pi*f_nep*Qr/np.pi/f0)**2)
+                # TLS noise
+                tls = fit_psd_params['tls_a']*f_nep**fit_psd_params['tls_b'] / (1.+(2*np.pi*f_nep*Qr/np.pi/f0)**2)
+
+                ax.loglog(f_nep, gr, 'r-', lw=2.5, label='gr noise')
+                ax.text(0.5, gr[0]*1.5, f'GR:{gr[0]:.3f} Hz^2/Hz')
+
+                ax.loglog(f_nep, tls, 'b-', lw=2.5, label='1/f')
+                ax.loglog(f_nep, fit_psd_params['amp_noise']*np.ones_like(f_nep), 'g-', label='amp', lw=2)
+
+                tau = fit_psd_params['tau']
+                ax.text(0.8, 0.8, f'Qr  : {round(Qr,-1):,.0f}\nf0   : {round(f0/1e6,-1):,.1f} MHz\ntau : {tau*1e6:.1f} us\nTLS_b : {fit_psd_params['tls_b']:.1f}', transform=ax.transAxes)
+
+                ax.axhline(fit_psd_params['gr'], color='k', linestyle='dashed', lw=2)
+
+                knee = self.data['ts'][kid][temp][atten]['fit_psd']['k_knee']
+                ax.axvline(knee, color='m', lw=2.5)
+                ax.text(knee, gr[0]*2.5, f'1/f knee: {knee:.1f} Hz')
+
             fig.savefig(self.work_dir+self.project_name+'/fit_psd_results/'+name+'.png')
             close(fig)
-
-            np.save(self.work_dir+self.project_name+'/fit_psd_dict/psd-'+name, self.data['ts'][kid][temp][atten]['psd'])
-            np.save(self.work_dir+self.project_name+'/fit_psd_dict/fit_psd-'+name, self.data['ts'][kid][temp][atten]['fit_psd'])
 
     def calculate_psd(self, kid, temp, atten, mode='on', ignore=[[0,1,2], [0]]):
         """
@@ -1560,7 +1587,8 @@ class Homodyne:
             msg('Data not available.\n'+str(e), 'fail')
             return -1
 
-    def despike(self, kid=None, temp=None, atten=None, ignore=[[0,1], [0]], win_size=350, sigma_thresh=3.5, peak_pts=4, **kwargs):
+    def despike(self, kid=None, temp=None, atten=None, ignore=[[0,1], [0]], \
+                win_size=350, sigma_thresh=3.5, peak_pts=4, **kwargs):
         """
         Despike the timestreams.
         Parameters
@@ -1583,8 +1611,11 @@ class Homodyne:
             Minimum amount of continuous points to consider the event as an spike.
         ----------
         """
+        # Key arguments
+        # ----------------------------------------------
         # Verbose
         verbose = kwargs.pop('verbose', False)
+        # ----------------------------------------------
 
         kids = self._get_kids_to_sweep(kid, mode='ts')
         for kid in kids:
@@ -1844,7 +1875,6 @@ class Homodyne:
             Colormap.
         ----------
         """
-
         # Key arguments
         # ----------------------------------------------
         # Ignore detectors
@@ -2072,6 +2102,9 @@ class Homodyne:
             #print(kid, temp, atten[k])
             tmp = self._get_temps_to_sweep(temp, kid, mode='ts')[0]
             att = self._get_atten_to_sweep(atten[k2], tmp, kid, mode='ts')[0]
+
+            print('*********************************')
+            print(kid, tmp, att)
 
             low_cols.append( len(self.data['ts'][kid][tmp][att]['I_on'][0]) )
             high_cols.append( len(self.data['ts'][kid][tmp][att]['I_on'][1]) )
