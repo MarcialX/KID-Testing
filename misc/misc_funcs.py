@@ -39,15 +39,74 @@ from matplotlib.pyplot import *
 from physics.physical_constants import *
 
 
-def combined_model(freqs, gr_noise, tau_qp, tls_a, tls_b, f0, Qr, amp_noise):
-    # Ruido Generación-Recombinación
-    gr = gr_noise/(1.+(2*np.pi*freqs*tau_qp)**2) / (1.+(2*np.pi*freqs*Qr/np.pi/f0)**2)
-    # Ruido TLS
-    tls = tls_a*freqs**tls_b / (1.+(2*np.pi*freqs*Qr/np.pi/f0)**2)
-    # Ruido del amplificador
+def spectra_noise_model(freqs, gr_level, tau_qp, tls_a, tls_b, Qr=20e3, f0=1e9, amp_noise=0):
+    """
+    Spectra noise model.
+    Parameters
+    ----------
+    freqs : array 
+        Frequency array [Hz]
+    gr_level : float
+        Generation-Recombination noise level.
+    tau_qp : float
+        Quasiparticle lifetime.
+    tls_a, tls_b : float
+        Parameters that make up the 1/f noise component.
+    Qr : float
+        Total quality factor.
+    f0 : float
+        Resonance frequency.
+    amp_noise : float
+        Amplifier noise.
+    ----------
+    """
+    # Generation-Recombination noise
+    gr = gr_noise(freqs, gr_level, tau_qp, Qr, f0)
+    # TLS noise
+    tls = tls_noise(freqs, tls_a, tls_b, Qr, f0)
+    # Amplifier noise
     amp = amp_noise
-    # Ruido Total
+
+    # Total noise
     return gr + tls + amp
+
+def gr_noise(freqs, gr_level, tau_qp, Qr, f0):
+    """
+    Generation-Recombination noise.
+    Parameters:
+    -----------
+    freqs : array 
+        Frequency array [Hz]
+    gr_noise : float
+        Generation-Recombination noise level.
+    tau_qp : float
+        Quasiparticle lifetime.
+    Qr : float
+        Total quality factor.
+    f0 : float
+        Resonance frequency.
+    -----------
+    """
+
+    return gr_level/(1.+(2*np.pi*freqs*tau_qp)**2) / (1.+(2*np.pi*freqs*Qr/np.pi/f0)**2)
+
+def tls_noise(freqs, tls_a, tls_b, Qr, f0):
+    """
+    Generation-Recombination noise.
+    Parameters:
+    -----------
+    freqs : array 
+        Frequency array [Hz]
+    tls_a, tls_b : float
+        Parameters that make up the 1/f noise component.
+    Qr : float
+        Total quality factor.
+    f0 : float
+        Resonance frequency.
+    -----------
+    """
+
+    return tls_a*freqs**(tls_b) / (1.+(2*np.pi*freqs*Qr/np.pi/f0)**2)
 
 def f0_vs_pwr_model(P, a, b):
     """

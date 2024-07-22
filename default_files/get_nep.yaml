@@ -1,0 +1,50 @@
+# F I T   R E S O N A T O R S
+# ---------------------------------------------------
+# ---------------------------------------------------
+
+# L O A D   D A T A
+# ---------------------------------------------------
+# Load saved data
+# If False it reads the FITS files, otherwise load the .npy files
+LOAD_PROJ : False
+# Save project when the tasks are completed.
+SAVE_PROJ : True
+
+# D A T A   S E L E C T I O N
+# ---------------------------------------------------
+# Temperatures: Base temperature or Blackbody.
+TEMPS : ["B010", "B015", "B020", "B025", "B030", "B040", "B050", "B060", "B070"]
+# Attenuations
+ATTS : "all"
+# Resonators
+KIDS : [0]
+# Number of repeats
+SAMPLES : "all"
+
+# T A S K S   D E F I N I T I O N
+# ---------------------------------------------------
+TASKS : 
+  "1" :
+    "name": "load_fit_res"
+    "params": {
+      "path" : "",
+      "type" : "vna"
+    }
+  "2" :
+    "name": "merge_vna"
+    "params": {
+      "xls_report" : False
+    }
+  "3" :
+    "name": "load_psd"
+    "params": {
+      "path" : ""
+    }
+  "4" :
+    "name": "NEP"
+    "params": {
+      "fixed_temp" : "B010",
+      "df" : 1.0
+    }
+
+

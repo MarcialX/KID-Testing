@@ -1010,7 +1010,7 @@ class Homodyne:
 
     def get_responsivity(self, kid, temp_conv='Nqp', var='fr', sample=0, material='Al', dims=[1,1,1],  \
                         nu=35e9, flag_kid=[], custom=None, data_source='vna', diry_fts="", from_fit=False, \
-                        method='min', res_method="grad", pwr_method='bandwidth', plot_res=True):
+                        method='min', res_method="grad", pwr_method='bandwidth', nqp_fit_pts=-4, plot_res=True):
         """
         Get responsivity
         Parameters
@@ -1059,6 +1059,8 @@ class Homodyne:
             'fit' : fitting the curve aP**b.
         plot_res(opt) : bool
             Plot the responsivity as var vs power/BB/Nqp.
+        nqp_fit_pts(opt) : int
+            Number of points to fit the Nqp counting from the end. 
         ----------
         """
 
@@ -1194,10 +1196,10 @@ class Homodyne:
 
                 elif temp_conv == 'Nqp':
 
-                    dF0_dNqp, b = np.polyfit(power[2:], xs[2:], 1)
-                    Nqps_fit = np.linspace(power[0], power[-1], 1000)
+                    dF0_dNqp, b = np.polyfit(power[nqp_fit_pts:], xs[nqp_fit_pts:], 1)
                     
                     """
+                    Nqps_fit = np.linspace(power[0], power[-1], 1000)
                     plot(power, xs, 'rs-')
                     plot(Nqps_fit, Nqps_fit*dF0_dNqp + b, 'k')
                     """
@@ -1233,7 +1235,7 @@ class Homodyne:
                     lstyle_pointer += 1
                 if var == 'fr':
                     xs_plot = (xs - xs[0])/xs[0]
-                    ax.set_ylabel('ffs', fontsize=18, weight='bold')
+                    ax.set_ylabel('ffs [ppm]', fontsize=18, weight='bold')
                 else:
                     xs_plot = xs
                     ax.set_ylabel(var, fontsize=18, weight='bold')
@@ -1243,9 +1245,9 @@ class Homodyne:
                         color = custom[0][k]
                         mk = custom[1][k]
                         lsty = custom[2][k]
-                        ax.plot(power, xs_plot, label=kid, linestyle=lsty, marker=mk, color=color)
+                        ax.plot(power, 1e6*xs_plot, label=kid, linestyle=lsty, marker=mk, color=color)
                     else:
-                        ax.plot(power, xs_plot, label=kid, linestyle=lstyle[lstyle_pointer], marker=lmarker[lstyle_pointer])
+                        ax.plot(power, 1e6*xs_plot, label=kid, linestyle=lstyle[lstyle_pointer], marker=lmarker[lstyle_pointer])
 
                     if temp_conv == 'power':
                         ax.set_xlabel('Power [W]', fontsize=18, weight='bold')
@@ -1344,7 +1346,10 @@ class Homodyne:
             ax_kid.legend()
 
             ax_neps.set_title(kid)
-            ax_neps.set_xlabel('Power [W]')
+            if self.data_type.lower() == 'blackbody': 
+                ax_neps.set_xlabel('Power [W]')
+            elif self.data_type.lower() == 'dark': 
+                ax_neps.set_xlabel('Nqp')
             ax_neps.set_ylabel('NEP [W/sqrt(Hz)]')
             ax_neps.grid(True, which="both", ls="-")
             ax_neps.legend()
@@ -1386,6 +1391,7 @@ class Homodyne:
         # ----------------------------------------------
 
         if self.data_type.lower() == 'dark':
+            self.Delta = get_Delta(Tcs['Al'])
             NEP = np.sqrt(psd) * (( (eta*tqp/self.Delta)*(np.abs(S)) )**(-1)) * np.sqrt(1 + (2*np.pi*f*tqp)**2 ) * np.sqrt(1 + (2*np.pi*f*Qr/np.pi/f0)**2)
         
         elif self.data_type.lower() == 'blackbody':
@@ -1459,8 +1465,11 @@ class Homodyne:
         Qr = self.data['vna'][kid][temp][atten]['fit']['Qr']
 
         if fit:
+            rcParams.update({'font.size': 15, 'font.weight': 'bold'})
             plot_name = kid + '-' + temp + '-' + atten
+            
             f_nep, psd_nep, fit_psd_params, f, k_knee = fit_mix_psd(f_on, psd_on, psd_off, f0, Qr, plot_name=plot_name, amp_range=[7.5e4, 8.0e4], trim_range=[0, 9e4])
+            
             self.data['ts'][kid][temp][atten]['fit_psd'] = {}
             self.data['ts'][kid][temp][atten]['fit_psd']['params'] = fit_psd_params
             self.data['ts'][kid][temp][atten]['fit_psd']['psd'] = [f_nep, psd_nep]
@@ -1493,13 +1502,15 @@ class Homodyne:
             ax.legend()
 
             if fit:
-                fit_PSD = combined_model(f_nep, fit_psd_params['gr'], fit_psd_params['tau'], fit_psd_params['tls_a'], fit_psd_params['tls_b'], f0, Qr, fit_psd_params['amp_noise'])
+                fit_PSD = spectra_noise_model(f_nep, fit_psd_params['gr'], fit_psd_params['tau'], fit_psd_params['tls_a'], \
+                                         fit_psd_params['tls_b'], Qr, f0, fit_psd_params['amp_noise'])
+                
                 ax.loglog(f_nep, fit_PSD, 'k', lw=2.5, label='fit')
 
-                # Generation-Recombination
-                gr = fit_psd_params['gr']/(1.+(2*np.pi*f_nep*fit_psd_params['tau'])**2) / (1.+(2*np.pi*f_nep*Qr/np.pi/f0)**2)
+                # Generation-Recombination noise
+                gr = gr_noise(f_nep, fit_psd_params['gr'], fit_psd_params['tau'], Qr, f0)
                 # TLS noise
-                tls = fit_psd_params['tls_a']*f_nep**fit_psd_params['tls_b'] / (1.+(2*np.pi*f_nep*Qr/np.pi/f0)**2)
+                tls = tls_noise(f_nep, fit_psd_params['tls_a'], fit_psd_params['tls_b'], Qr, f0)
 
                 ax.loglog(f_nep, gr, 'r-', lw=2.5, label='gr noise')
                 ax.text(0.5, gr[0]*1.5, f'GR:{gr[0]:.3f} Hz^2/Hz')

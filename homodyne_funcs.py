@@ -69,71 +69,111 @@ def get_df(I, Q, didf, dqdf, I0, Q0):
 
     return df, dIQ
 
-def get_psd(df, fs, join='mean'):
+def get_psd(df, fs, method='mean'):
     """
     Compute the PSD.
+    Parameters
+    ----------
+    df : array
+        Fractional frequency [Hz].
+    fs : float
+        Samplig frequency [Hz].
+    method : string
+        PSD method.
+    ----------
     """
 
     psd = [signal.periodogram(df[i], fs)[1]  for i in range(len(df))]
     freqs = signal.periodogram(df[0], fs)[0]
 
-    if join == 'mean':
-        join_psd = np.average(psd, axis=0)
+    if method == 'mean':
+        total_psd = np.average(psd, axis=0)
+    elif method == 'median':
+        total_psd = np.median(psd, axis=0)
 
-    return freqs[2:], join_psd[2:]
+    return freqs[2:], total_psd[2:]
 
 def fit_mix_psd(f, psd_on, psd_off, f0, Qr, amp_range=[7.5e4, 8.0e4], trim_range=[0.2, 9e4], plot_name=""):
     """
     Get the pixed PSD.
+    Parameters
+    ----------
+    f : array
+        Frequency [Hz].
+    psd_on : array 
+        PSD on resonance.
+    psd_off : array
+        PSD off resonance [System noise].
+    f0 : float
+        Resonance frequency.
+    Qr : float
+        Total quality factor.
+    amp_range[opt, OBSOLETE] : list
+        Amplifier noise range.
+    trim_range[opt] : list
+        Useful frequencies to work on.
+    plot_name[opt] : string
+        Plot name of the PSD.
+    ----------
     """
 
-    fitPSD = fit_psd(name=plot_name)
+    # Create fit object
+    fit_psd_obj = fit_psd(plot_name=plot_name)
+
     ioff()
 
     psd_clean = psd_on[np.where(f>trim_range[0])[0][0]:np.where(f>trim_range[1])[0][0]] - \
                 psd_off[np.where(f>trim_range[0])[0][0]:np.where(f>trim_range[1])[0][0]]
+    
     psd_clean_for_nep = psd_on - psd_off
-    psd_clean_e = psd_clean[psd_clean>0]
+    psd_trim = psd_clean[psd_clean>0]
 
     fm = f[np.where(f>trim_range[0])[0][0]:np.where(f>trim_range[1])[0][0]][psd_clean>0]
+    fm = np.array(fm)
 
-    rcParams.update({'font.size': 15, 'font.weight': 'bold'})
     amp_idx_from = np.where(fm>amp_range[0])[0][0]
     amp_idx_to = np.where(fm<amp_range[1])[0][-1]
-    amp_noise = np.nanmedian(psd_clean_e[amp_idx_from:amp_idx_to])
+    amp_noise = np.nanmedian(psd_trim[amp_idx_from:amp_idx_to])
     amp_noise = 0
 
     try:
         print('I N I T   P A R A M S')
+        print('---------------------')
         msg(f'Qr: {Qr:.0f}', 'info')
         msg(f'f0: {f0:.0f} Hz', 'info')
-        msg(f'amp: {amp_noise:.3f} [Hz^2/Hz]', 'info')
+        msg(f'amp [not used]: {amp_noise:.3f} [Hz^2/Hz]', 'info')
 
-        fitPSD.fit_psd(fm, psd_clean_e, f0, Qr, amp_noise, inter=True)
+        # P E R F O R M   T H E   F I T
+        # -----------------------------
+        fit_psd_obj.apply_psd_fit(fm, psd_trim, f0, Qr, amp_noise, inter=True)
+
         ion()
 
+        # F I T    R E S U L T S
+        # -----------------------------
         fit_single_psd = {}
-        fit_single_psd['gr'] = fitPSD.gr_noise
-        fit_single_psd['tau'] = fitPSD.tau
-        fit_single_psd['tls_a'] = fitPSD.tls_a
-        fit_single_psd['tls_b'] = fitPSD.tls_b
+        fit_single_psd['gr'] = fit_psd_obj.gr_noise
+        fit_single_psd['tau'] = fit_psd_obj.tau
+        fit_single_psd['tls_a'] = fit_psd_obj.tls_a
+        fit_single_psd['tls_b'] = fit_psd_obj.tls_b
         fit_single_psd['amp_noise'] = amp_noise
 
         print('F I T   R E S U L T S')
-        msg(f'tau: {fitPSD.tau*1e6:.1f} us', 'info')
-        msg(f'GR noise: {fitPSD.gr_noise:.3f} Hz^2/Hz', 'info')
+        msg(f'tau: {fit_psd_obj.tau*1e6:.1f} us', 'info')
+        msg(f'GR noise: {fit_psd_obj.gr_noise:.3f} Hz^2/Hz', 'info')
 
         # Get the 1/f knee
-        # Ruido Generación-Recombinación
-        gr = fitPSD.gr_noise/(1.+(2*np.pi*fm*fitPSD.tau)**2) / (1.+(2*np.pi*fm*Qr/np.pi/f0)**2)
-        # Ruido TLS
-        tls = fitPSD.tls_a*fm**fitPSD.tls_b / (1.+(2*np.pi*fm*Qr/np.pi/f0)**2)
+        # Generation-Recombination noise
+        gr = gr_noise(fm, fit_psd_obj.gr_noise, fit_psd_obj.tau, Qr, f0)
+        # TLS noise
+        tls = tls_noise(fm, fit_psd_obj.tls_a, fit_psd_obj.tls_b, Qr, f0)
 
-        fm = np.array(fm)
+        # Select frequencies below 1kHz.
         gr = gr[fm<1000]
         tls = tls[fm<1000]
-
+        # Get GR-TLS intersection
         f_knee = fm[np.argmin(np.abs(gr-tls))]
+        
         msg(f'1/f knee: {f_knee:.3f} Hz', 'info')
 
         return f[psd_clean_for_nep>0], psd_clean_for_nep[psd_clean_for_nep>0], fit_single_psd, f, f_knee
