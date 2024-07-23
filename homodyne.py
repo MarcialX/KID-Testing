@@ -120,16 +120,20 @@ class Homodyne:
         else:
             self.project_name = proj_name
 
-        foldername = diry.split('/')[-2]
-        self.date, self.data_type, self.meas, self.sample = self._get_meas_char_from_foldername(foldername)
-
         if not load_saved:
+
+            foldername = diry.split('/')[-2]
+            self.date, self.data_type, self.meas, self.sample = self._get_meas_char_from_foldername(foldername)
+            
             # Loading data base
             msg('Loading directory...', 'info')
             self.data = self.load_data(diry, only_vna=only_vna, expected=expected)
+            msg('Done :)', 'ok')
+            
         else:
-            data, diry = self.load_proj(BACKUP_FILE)
+            data, diry, setup = self.load_proj(BACKUP_FILE)
             self.data = data
+            self.date, self.data_type, self.meas, self.sample = setup
 
         self.data_diry = diry
 
@@ -251,8 +255,8 @@ class Homodyne:
                         vna_type, temp, temp_units, atten, n_sample = self._extract_features_from_name(vna_file)
                         vna_name = vna_type+'-'+temp+'-'+atten
 
-                        print('****************')
-                        print(vna_name, n_sample)
+                        #print('****************')
+                        #print(vna_name, n_sample)
 
                         temp_prefix = TEMP_TYPE[temp_units]
                         temp = temp_prefix+temp
@@ -269,8 +273,8 @@ class Homodyne:
                         # Read the continuous sweeps
                         if vna_type == 'con':
 
-                            print('++++++++++++++++++++++++')
-                            print(vna_full_path)
+                            #print('++++++++++++++++++++++++')
+                            #print(vna_full_path)
 
                             if not temp in data['vna']['full']:
                                 data['vna']['full'][temp] = {}
@@ -342,8 +346,12 @@ class Homodyne:
             filename = BACKUP_FILE
 
         msg('Saving project: '+filename, 'info')
-        np.save(self.work_dir+self.proj_name+'/backup_data/'+filename, self.data)
-        np.save(self.work_dir+self.proj_name+'/backup_data/data_diry.npy', self.data_diry)
+        np.save(self.work_dir+self.project_name+'/backup_data/'+filename, self.data)
+        np.save(self.work_dir+self.project_name+'/backup_data/data_diry.npy', self.data_diry)
+        np.save(self.work_dir+self.project_name+'/backup_data/data_setup.npy', [self.date, \
+                                                                                self.data_type, \
+                                                                                self.meas, \
+                                                                                self.sample])
         msg('Done :)', 'ok')
 
     def load_proj(self, filename=None):
@@ -360,11 +368,12 @@ class Homodyne:
             filename = BACKUP_FILE
 
         msg('Loading project: '+filename, 'info')
-        data = np.load(self.work_dir+self.proj_name+'/backup_data/'+filename+'.npy', allow_pickle=True).item()
-        data_diry = np.load(self.work_dir+self.proj_name+'/backup_data/data_diry.npy', allow_pickle=True).item()
+        data = np.load(self.work_dir+self.project_name+'/backup_data/'+filename+'.npy', allow_pickle=True).item()
+        data_diry = np.load(self.work_dir+self.project_name+'/backup_data/data_diry.npy', allow_pickle=True).item()
+        setup = np.load(self.work_dir+self.project_name+'/backup_data/data_setup.npy', allow_pickle=True)
         msg('Done :)', 'ok')
 
-        return data, data_diry
+        return data, data_diry, setup
 
     def fit_vna_resonators(self, kid=None, temp=None, atten=None, sample=0, complete=True, n=3.5, **kwargs):
         """

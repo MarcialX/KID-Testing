@@ -433,8 +433,8 @@ def get_noise_from_single_file(path, deglitch=False, avoid=[[0, 1], []], **kwarg
             Id.append(i_t)
             Qd.append(q_t)
 
-        print('Reading...', i)
-    print('All read')
+        #print('Reading...', i)
+    #print('All read')
 
     tm = np.arange(0, (1/fs)*len(i_t), 1/fs)
 
