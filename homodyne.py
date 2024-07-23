@@ -128,10 +128,8 @@ class Homodyne:
             msg('Loading directory...', 'info')
             self.data = self.load_data(diry, only_vna=only_vna, expected=expected)
         else:
-            msg('Loading saved file', 'info')
-            self.data = np.load(diry+'/backup_data/'+BACKUP_FILE+'.npy', allow_pickle=True).item()
-            
-            diry = np.load(diry+'/backup_data/data_diry.npy')
+            data, diry = self.load_proj(BACKUP_FILE)
+            self.data = data
 
         self.data_diry = diry
 
@@ -330,21 +328,43 @@ class Homodyne:
 
         return data
 
-    def save_data(self, filename=None):
+    def save_proj(self, filename=None):
         """
         Save analysis in a numpy file.
         Parameters
         ----------
         filename : string
-            File name of saved data.
+            Saved data filename.
         ----------
         """
-        # If the path is not defined
+
         if filename is None:
             filename = BACKUP_FILE
 
+        msg('Saving project: '+filename, 'info')
         np.save(self.work_dir+self.proj_name+'/backup_data/'+filename, self.data)
         np.save(self.work_dir+self.proj_name+'/backup_data/data_diry.npy', self.data_diry)
+        msg('Done :)', 'ok')
+
+    def load_proj(self, filename=None):
+        """
+        Load a saved project.
+        Parameters
+        ----------
+        filename : string
+            Loaded data filename.
+        ----------
+        """
+
+        if filename is None:
+            filename = BACKUP_FILE
+
+        msg('Loading project: '+filename, 'info')
+        data = np.load(self.work_dir+self.proj_name+'/backup_data/'+filename+'.npy', allow_pickle=True).item()
+        data_diry = np.load(self.work_dir+self.proj_name+'/backup_data/data_diry.npy', allow_pickle=True).item()
+        msg('Done :)', 'ok')
+
+        return data, data_diry
 
     def fit_vna_resonators(self, kid=None, temp=None, atten=None, sample=0, complete=True, n=3.5, **kwargs):
         """

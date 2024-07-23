@@ -36,15 +36,3 @@ TASKS :
       "type" : "vna",
       "n" : 5
     }
-  "3" :
-    "name" : "find_overdriven"
-    "params": {
-      "temp" : 80,
-      "sample" : 0,
-      "thresh" : 0.7
-    }
-  "4" :
-    "name": "merge_vna"
-    "params": {
-      "xls_report" : True
-    }  

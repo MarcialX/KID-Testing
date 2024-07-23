@@ -103,7 +103,8 @@ else:
     used_project = data_path
 
 h = Homodyne(used_project, work_dir=project_path, proj_name=project_name, load_saved=LOAD_PROJ, 
-            overdriven=atts_overdriven, add_in_atten=add_in_atten, add_out_atten=add_out_atten)
+            overdriven=atts_overdriven, add_in_atten=add_in_atten, add_out_atten=add_out_atten,
+            material=MATERIAL)
 
 TASKS = tasks_data['TASKS']
 
@@ -346,4 +347,11 @@ for s, step in enumerate(TASKS):
 
         h.get_all_NEP(kids, temps, **the_args)
 
+    # --> Saving project
+    elif task_name == "save_proj":
 
+        h.save_proj(filename=None)
+
+
+if SAVE_PROJ:
+    h.save_proj()

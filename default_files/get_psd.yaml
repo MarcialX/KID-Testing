@@ -1,4 +1,4 @@
-# F I T   R E S O N A T O R S
+# G E T   P S D
 # ---------------------------------------------------
 # ---------------------------------------------------
 
@@ -8,7 +8,7 @@
 # If False it reads the FITS files, otherwise load the .npy files
 LOAD_PROJ : False
 # Save project when the tasks are completed.
-SAVE_PROJ : True
+SAVE_PROJ : False
 
 # D A T A   S E L E C T I O N
 # ---------------------------------------------------
@@ -39,13 +39,15 @@ TASKS :
     "name": "despike"
     "params": {
       "ignore" : [[0,1], [0,1]],
-      "win_size" : 350,
-      "sigma_thresh" : 3.5,
+      "win_size" : 400,
+      "sigma_thresh" : 2.8,
       "peak_pts" : 4,
-      "plot_ts" : False
+      "plot_ts" : True
     }
   "4" :
     "name": "get_psd"
     "params": {
-
+      "ignore" : [[0,1], [0,1]],
+      "fit_psd" : True,
+      "plot_fit" : True
     }

@@ -1,4 +1,4 @@
-# F I T   R E S O N A T O R S
+# G E N E R A T E   U S E F U L   P L O T S
 # ---------------------------------------------------
 # ---------------------------------------------------
 
@@ -8,7 +8,7 @@
 # If False it reads the FITS files, otherwise load the .npy files
 LOAD_PROJ : False
 # Save project when the tasks are completed.
-SAVE_PROJ : True
+SAVE_PROJ : False
 
 # D A T A   S E L E C T I O N
 # ---------------------------------------------------
