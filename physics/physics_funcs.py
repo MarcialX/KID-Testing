@@ -36,7 +36,7 @@ from scipy import integrate
 
 from matplotlib.pyplot import *
 
-from physical_constants import *
+from .physical_constants import *
 
 
 def spectra_noise_model(freqs, gr_level, tau_qp, tls_a, tls_b, Qr=20e3, f0=1e9, amp_noise=0):

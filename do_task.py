@@ -58,8 +58,6 @@ KIDS = tasks_data['KIDS']
 
 SAMPLES = tasks_data['SAMPLES']
 
-MATERIAL = tasks_data['MATERIAL']
-
 LOAD_PROJ = tasks_data['LOAD_PROJ']
 SAVE_PROJ = tasks_data['SAVE_PROJ']
 
@@ -93,6 +91,8 @@ project_path = gral_params['PROJECT_FOLDER']
 atts_overdriven = gral_params['ATT_OVRDRN']
 add_in_atten = gral_params['IN_ADD_ATT']
 add_out_atten = gral_params['OUT_ADD_ATT']
+
+MATERIAL = gral_params['MATERIAL']
 
 # R U N   T A S K S
 # --------------------------------------------------
