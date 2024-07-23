@@ -209,3 +209,73 @@ def get_power_from_FTS(diry, kid, T, n_pols=2):
     P = integrate.trapezoid(spec, f_sel*1e9) * Ao
 
     return P
+
+def gaussian(x, A, mu, sigma, offset):
+    """
+    Gaussian function
+    Parameters
+    ----------
+    x : int/float/array
+    A : float
+        Amplitude
+    mu : float
+        Mean
+    sigma : float
+        Dispersion
+    offset : float
+        Offset
+    ----------
+    """
+    return offset+A*_np.exp(-((x-mu)**2)/(2*sigma**2))
+
+def twoD_Gaussian(pos, amplitude, xo, yo, sigma, offset):
+    """
+    2D Gaussian function.
+    Parameters
+    ---------
+        Input:
+            pos:     	[list] Points of the 2D map
+            amplitude:  [float] Amplitude
+            xo, yo:     [float] Gaussian profile position
+            sigma:      [float] Dispersion profile
+            offset:     [float] Offset profile
+        Ouput:
+            g:			[list] Gaussian profile unwraped in one dimension
+    ---------
+    """
+	
+    x = pos[0]
+    y = pos[1]
+    xo = float(xo)
+    yo = float(yo)
+    g = offset + amplitude*np.exp(-(((x - xo)**2/2./sigma**2) + ((y - yo)**2/2./sigma**2)))
+
+    return g.ravel()
+
+def twoD_ElGaussian(pos, amplitude, xo, yo, sigma_x, sigma_y, theta, offset):
+    """
+    2D Elliptical Gaussian function.
+    Parameters
+    ---------
+        Input:
+            pos:             	[list] Points of the 2D map
+            amplitude:          [float] Amplitude
+            xo, yo:             [float] Gaussian profile position
+            sigma_x, sigma_y:   [float] X-Y Dispersion profile
+            theta:              [float] Major axis inclination
+            offset:             [float] Offset profile
+        Ouput:
+            g:			[list] Gaussian profile unwraped in one dimension
+    ---------
+    """
+    
+    x = pos[0]
+    y = pos[1]
+    xo = float(xo)
+    yo = float(yo)
+    a = (np.cos(theta)**2)/(2*sigma_x**2) + (np.sin(theta)**2)/(2*sigma_y**2)
+    b = -(np.sin(2*theta))/(4*sigma_x**2) + (np.sin(2*theta))/(4*sigma_y**2)
+    c = (np.sin(theta)**2)/(2*sigma_x**2) + (np.cos(theta)**2)/(2*sigma_y**2)
+    g = offset+amplitude*np.exp(-(a*((x-xo)**2) + 2*b*(x-xo)*(y-yo) + c*((y-yo)**2)))
+
+    return g.ravel()
