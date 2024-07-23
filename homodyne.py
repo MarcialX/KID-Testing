@@ -102,6 +102,8 @@ class Homodyne:
         add_in_att = kwargs.pop('add_in_att', 0)
         # Additional output attenuation
         add_out_att = kwargs.pop('add_out_att', 0)
+        # Material
+        material = kwargs.pop('material', 'Al')
         # ----------------------------------------------
 
         # Create a directory for the project
@@ -156,6 +158,7 @@ class Homodyne:
         self.found_kids = []
 
         # Material properties
+        self.material = material
         self.Delta = 1
 
         msg('Done', 'ok')
@@ -1008,7 +1011,7 @@ class Homodyne:
                 for att in attens:
                     self.get_psd_on_off(kid, tmp, att, ignore=ignore, fit=fit_psd, plot_fit=plot_fit)
 
-    def get_responsivity(self, kid, temp_conv='Nqp', var='fr', sample=0, material='Al', dims=[1,1,1],  \
+    def get_responsivity(self, kid, temp_conv='Nqp', var='fr', sample=0, dims=[1,1,1],  \
                         nu=35e9, flag_kid=[], custom=None, data_source='vna', diry_fts="", from_fit=False, \
                         method='min', res_method="grad", pwr_method='bandwidth', nqp_fit_pts=-4, plot_res=True):
         """
@@ -1029,8 +1032,6 @@ class Homodyne:
             'Qi': Intrinsec quality factor.
         sample(opt) : int
             Sample number. If 'None' take all the samples/repeats.
-        material(opt) : string
-            Defined material. Only necessary for Nqp calculation.
         dims(opt) : list
             Device dimensions in um to get the Volume in um³.
         nu(opt) : float
@@ -1154,14 +1155,14 @@ class Homodyne:
                         power.append(p)
 
                     if temp_conv == 'Nqp':
-                        Delta = get_Delta(Tcs[material])
+                        Delta = get_Delta(Tcs[self.material])
                         self.Delta = Delta
 
-                        nqp = get_nqp(N0s[material], rt, Delta)
+                        nqp = get_nqp(N0s[self.material], rt, Delta)
                         Nqp = nqp * V
                         power.append(Nqp)
 
-                        msg('Material: '+material, 'info')
+                        msg('Material: '+self.material, 'info')
                         msg('Volume [um³]: '+str(V), 'info')
                         msg('Energy gap: '+str(Delta), 'info')
                         msg('Nqp: '+str(Nqp), 'info')
@@ -1391,7 +1392,7 @@ class Homodyne:
         # ----------------------------------------------
 
         if self.data_type.lower() == 'dark':
-            self.Delta = get_Delta(Tcs['Al'])
+            self.Delta = get_Delta(Tcs[self.material])
             NEP = np.sqrt(psd) * (( (eta*tqp/self.Delta)*(np.abs(S)) )**(-1)) * np.sqrt(1 + (2*np.pi*f*tqp)**2 ) * np.sqrt(1 + (2*np.pi*f*Qr/np.pi/f0)**2)
         
         elif self.data_type.lower() == 'blackbody':

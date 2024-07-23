@@ -58,6 +58,8 @@ KIDS = tasks_data['KIDS']
 
 SAMPLES = tasks_data['SAMPLES']
 
+MATERIAL = tasks_data['MATERIAL']
+
 LOAD_PROJ = tasks_data['LOAD_PROJ']
 SAVE_PROJ = tasks_data['SAVE_PROJ']
 
@@ -100,8 +102,8 @@ if LOAD_PROJ:
 else: 
     used_project = data_path
 
-h = Homodyne(used_project, work_dir=project_path, proj_name=project_name, load_saved=LOAD_PROJ, overdriven=atts_overdriven, \
-            add_in_atten=add_in_atten, add_out_atten=add_out_atten)
+h = Homodyne(used_project, work_dir=project_path, proj_name=project_name, load_saved=LOAD_PROJ, 
+            overdriven=atts_overdriven, add_in_atten=add_in_atten, add_out_atten=add_out_atten)
 
 TASKS = tasks_data['TASKS']
 
@@ -314,8 +316,6 @@ for s, step in enumerate(TASKS):
                 the_args['flag_kid'] = task_params['flag_kid']
             elif p == 'data_source':
                 the_args['data_source'] = task_params['data_source']
-            elif p == 'material':
-                the_args['material'] = task_params['material']
             elif p == 'nu':
                 the_args['nu'] = float(task_params['nu'])
             elif p == 'sample':

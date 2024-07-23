@@ -86,7 +86,7 @@ class fit_psd(object):
 
         return n_freq, n_psd
     
-    def log_binning(self, freq_psd, psd, n_pts=200):
+    def log_binning(self, freq_psd, psd, n_pts=500):
         """
         Logarithmic binning for PSD.
         Parameters
