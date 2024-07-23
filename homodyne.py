@@ -57,7 +57,8 @@ fitRes = Manager().dict()
 sys.path.append('../')
 from misc.msg_custom import *
 from misc.display_dicts import *
-from misc.misc_funcs import *
+
+from physics.physics_funcs import *
 
 #from kid_finder import *
 from data_processing import *

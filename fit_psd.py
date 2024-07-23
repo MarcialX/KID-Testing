@@ -31,7 +31,7 @@ from scipy.optimize import curve_fit
 from matplotlib.pyplot import *
 
 sys.path.append('../')
-from misc.misc_funcs import *
+from physics.physics_funcs import *
 
 
 class fit_psd(object):
