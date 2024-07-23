@@ -17,12 +17,13 @@ import sys
 
 import numpy as np
 
+sys.path.append('../KID-Testing')
+from homodyne import *
+
 from matplotlib.pyplot import *
 #rc('font', family='serif', size='14')
 #ion()
 
-sys.path.append('../KID-Testing')
-from homodyne import *
 
 
 # Boltzmann constant [J K^-1]
