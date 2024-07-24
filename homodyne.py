@@ -255,9 +255,6 @@ class Homodyne:
                         vna_type, temp, temp_units, atten, n_sample = self._extract_features_from_name(vna_file)
                         vna_name = vna_type+'-'+temp+'-'+atten
 
-                        #print('****************')
-                        #print(vna_name, n_sample)
-
                         temp_prefix = TEMP_TYPE[temp_units]
                         temp = temp_prefix+temp
                         atten = 'A'+atten
@@ -272,9 +269,6 @@ class Homodyne:
 
                         # Read the continuous sweeps
                         if vna_type == 'con':
-
-                            #print('++++++++++++++++++++++++')
-                            #print(vna_full_path)
 
                             if not temp in data['vna']['full']:
                                 data['vna']['full'][temp] = {}
@@ -1492,8 +1486,13 @@ class Homodyne:
         f_on, psd_on, df_on = self.calculate_psd(kid, temp, atten, mode='on', ignore=ignore)
         self.data['ts'][kid][temp][atten]['psd']['on'] = [f_on, psd_on]
 
-        f0 = self.data['vna'][kid][temp][atten]['fit']['fr']
-        Qr = self.data['vna'][kid][temp][atten]['fit']['Qr']
+        #f0 = self.data['vna'][kid][temp][atten]['fit']['fr']
+        f0 = self.data['ts'][kid][temp][atten]['hdr_on'][0]['SYNTHFRE']
+        try:
+            Qr = self.data['vna'][kid][temp][atten]['fit']['Qr']
+        except:
+            Qr = 0
+            msg('Qr not found. Qr set to zero, i.e. ring-down negligible.', 'warn')
 
         if fit:
             rcParams.update({'font.size': 15, 'font.weight': 'bold'})
@@ -1984,8 +1983,6 @@ class Homodyne:
                                 if not self.data['vna'][kid][tmp][att]['fit']['Qi_err'] is None:
                                     print(' ->'+att)
 
-                                    #if (self.data['vna'][kid][tmp][att]['fit']['Qi_err']/self.data['vna'][kid][tmp][att]['fit']['Qi']) < 0.1:
-
                                     # Get the attenuations
                                     extra_att = self.data['vna'][kid][tmp][att]['header'][0]['ATT_UC'] + \
                                                 self.data['vna'][kid][tmp][att]['header'][0]['ATT_C'] + \
@@ -2053,12 +2050,15 @@ class Homodyne:
             if len(n_temps) > 1:
                 if self.data_type.lower() == 'dark':
                     subfix = 'mK'
+                    real_temp = f'{self.data['vna'][kid][tmp][att]['header'][0]['SAMPLETE']*1e3:.0f}'
+
                 elif self.data_type.lower() == 'blackbody':
                     subfix = 'K'
+                    real_temp = f'{self.data['vna'][kid][tmp][att]['header'][0]['BLACKBOD']:.1f}'
 
-                ax_qr[j, i].text(0.7, 0.85, str(int(tmp[1:])) + ' '+subfix, {'fontsize': 15, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_qr[j, i].transAxes,)
-                ax_qc[j, i].text(0.7, 0.85, str(int(tmp[1:])) + ' '+subfix, {'fontsize': 15, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_qc[j, i].transAxes,)
-                ax_qi[j, i].text(0.7, 0.85, str(int(tmp[1:])) + ' '+subfix, {'fontsize': 15, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_qi[j, i].transAxes,)
+                ax_qr[j, i].text(0.7, 0.85, real_temp + ' '+subfix, {'fontsize': 15, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_qr[j, i].transAxes,)
+                ax_qc[j, i].text(0.7, 0.85, real_temp + ' '+subfix, {'fontsize': 15, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_qc[j, i].transAxes,)
+                ax_qi[j, i].text(0.7, 0.85, real_temp + ' '+subfix, {'fontsize': 15, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_qi[j, i].transAxes,)
 
             if i == 0:
                 if len(n_temps) == 1:
@@ -2141,12 +2141,8 @@ class Homodyne:
 
         for k, kid in enumerate(kids):
             k2 = int(kid[1:])
-            #print(kid, temp, atten[k])
             tmp = self._get_temps_to_sweep(temp, kid, mode='ts')[0]
             att = self._get_atten_to_sweep(atten[k2], tmp, kid, mode='ts')[0]
-
-            print('*********************************')
-            print(kid, tmp, att)
 
             low_cols.append( len(self.data['ts'][kid][tmp][att]['I_on'][0]) )
             high_cols.append( len(self.data['ts'][kid][tmp][att]['I_on'][1]) )
@@ -2189,10 +2185,7 @@ class Homodyne:
                     Q_low = self.data['ts'][kid][tmp][att]['Q_on'][0][ts]
 
                     ax_I_low[k, ts].plot(ts_low, I_low, lw=0.75, color=cmap(norm_color(k)))
-                    #ax_I_low[k, ts].grid()
-
                     ax_Q_low[k, ts].plot(ts_low, Q_low, lw=0.75, color=cmap(norm_color(k)))
-                    #ax_Q_low[k, ts].grid()
 
                     ax_I_low[k, ts].text(0.85, 0.85, str(ts), {'fontsize': 10, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_I_low[k, ts].transAxes)
                     ax_Q_low[k, ts].text(0.85, 0.85, str(ts), {'fontsize': 10, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_Q_low[k, ts].transAxes)
@@ -2200,9 +2193,6 @@ class Homodyne:
                     if ts == 0:
                         ax_I_low[k, ts].set_ylabel(kid+'\n I[V]')
                         ax_Q_low[k, ts].set_ylabel(kid+'\n Q[V]')
-                    #else:
-                        #ax_I_low[k, ts].set_yticks([])
-                        #ax_Q_low[k, ts].set_yticks([])
 
                     if k == len(kids)-1:
                         ax_I_low[k, ts].set_xlabel('\nTime[s]')
@@ -2249,9 +2239,6 @@ class Homodyne:
                     if th == 0:
                         axs_I[cnt][k, m].set_ylabel(kid+'\n I[V]')
                         axs_Q[cnt][k, m].set_ylabel(kid+'\n Q[V]')
-                    #else:
-                        #axs_I[cnt][k, m].set_yticks([])
-                        #axs_Q[cnt][k, m].set_yticks([])
 
                     if k == len(kids)-1:
                         axs_I[cnt][k, m].set_xlabel('\nTime[s]')
@@ -2370,17 +2357,25 @@ class Homodyne:
 
                             if data_source == 'vna':
                                 f, s21 = self.data['vna'][kid][tm][single_atten]['data'][sample]
+                                if self.data_type.lower() == 'dark':                              
+                                    real_temp = f'{self.data['vna'][kid][tm][single_atten]['header'][sample]['SAMPLETE']*1e3:.0f}mK'
+                                elif self.data_type.lower() == 'blackbody':                              
+                                    real_temp = f'{self.data['vna'][kid][tm][single_atten]['header'][sample]['BLACKBOD']:.1f}K'
+
                             elif data_source == 'homo':
                                 f = self.data['ts'][kid][tm][single_atten]['f']
                                 s21 = self.data['ts'][kid][tm][single_atten]['s21']
+                                if self.data_type.lower() == 'dark':                              
+                                    real_temp = f'{self.data['ts'][kid][tm][single_atten]['hdr_on'][0]['SAMPLETE']*1e3:.0f}mK'
+                                elif self.data_type.lower() == 'blackbody':                              
+                                    real_temp = f'{self.data['ts'][kid][tm][single_atten]['hdr_on'][0]['BLACKBOD']:.1f}K'
 
-                            axm[j,i].plot(f/1e6, 20*np.log10(np.abs(s21)), color=single_color, alpha=alpha, lw=1.75, label=tm)
+                            axm[j,i].plot(f/1e6, 20*np.log10(np.abs(s21)), color=single_color, alpha=alpha, lw=1.75, label=real_temp)
                             if t == 0 and a == len(attens)-1:
                                 axm[j,i].text(f[0]/1e6+0.65*(f[-1]-f[0])/1e6, np.min(20*np.log10(np.abs(s21)))+ \
                                             0.1*(np.max(20*np.log10(np.abs(s21)))-np.min(20*np.log10(np.abs(s21)))), \
                                             kid+'\n'+single_atten[1:]+'dB', {'fontsize':17, 'color':'blue'})
 
-                            #axm[j,i].set_title(kid)
                             if i == 0:
                                 axm[j,i].set_ylabel('S21 [dB]', fontsize=18, weight='bold')
                             if j == xg-1:
@@ -2400,6 +2395,7 @@ class Homodyne:
         # Save figures
         if fig_name is None:
             fig_name = 'S21_per_kid'
+
         fig.savefig(self.work_dir+self.project_name+'/fit_res_results/summary_plots/'+fig_name+'.png')
 
     def plot_s21_kid(self, kid, temp=None, atten=None, sample=0, data_source='vna', fit=False):
@@ -2481,6 +2477,7 @@ class Homodyne:
                             f_fit = self.data['vna'][kid][tmp][att]['fit'][sample]['freq_data']
                             s21_fit = self.data['vna'][kid][tmp][att]['fit'][sample]['fit_data']
                             axs[0].plot(f_fit/1e6, 20*np.log10(np.abs(s21_fit)), '-', color='k', lw=1.25 )
+                        
                         axs[0].set_title(plot_title, fontsize=18, weight='bold')
                         axs[0].set_xlabel('Frequency [MHz]', fontsize=18, weight='bold')
                         axs[0].set_ylabel('S21 [dB]', fontsize=18, weight='bold')
