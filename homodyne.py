@@ -1498,9 +1498,9 @@ class Homodyne:
         if fit:
             rcParams.update({'font.size': 15, 'font.weight': 'bold'})
             plot_name = kid + '-' + temp + '-' + atten
-            
-            f_nep, psd_nep, fit_psd_params, f, k_knee = fit_mix_psd(f_on, psd_on, psd_off, f0, Qr, plot_name=plot_name, amp_range=[7.5e4, 8.0e4], trim_range=[0, 9e4])
-            
+
+            f_nep, psd_nep, fit_psd_params, k_knee = fit_mix_psd(f_on, psd_on, psd_off, f0, Qr, plot_name=plot_name, trim_range=[0.1, 8.5e4])
+
             self.data['ts'][kid][temp][atten]['fit_psd'] = {}
             self.data['ts'][kid][temp][atten]['fit_psd']['params'] = fit_psd_params
             self.data['ts'][kid][temp][atten]['fit_psd']['psd'] = [f_nep, psd_nep]
@@ -1533,15 +1533,15 @@ class Homodyne:
             ax.legend()
 
             if fit:
-                fit_PSD = spectra_noise_model(f_nep, fit_psd_params['gr'], fit_psd_params['tau'], fit_psd_params['tls_a'], \
-                                         fit_psd_params['tls_b'], Qr, f0, fit_psd_params['amp_noise'])
+                fit_PSD = spectra_noise_model(f_nep, fit_psd_params['gr'], fit_psd_params['tau'], fit_psd_params['tls_a'],
+                                         fit_psd_params['tls_b'], fit_psd_params['amp_noise'], Qr, f0)
                 
                 ax.loglog(f_nep, fit_PSD, 'k', lw=2.5, label='fit')
 
                 # Generation-Recombination noise
                 gr = gr_noise(f_nep, fit_psd_params['gr'], fit_psd_params['tau'], Qr, f0)
                 # TLS noise
-                tls = tls_noise(f_nep, fit_psd_params['tls_a'], fit_psd_params['tls_b'], Qr, f0)
+                tls = tls_noise(f_nep, fit_psd_params['tls_a'], fit_psd_params['tls_b'], fit_psd_params['tau'], Qr, f0)
 
                 ax.loglog(f_nep, gr, 'r-', lw=2.5, label='gr noise')
                 ax.text(0.5, gr[0]*1.5, f'GR:{gr[0]:.3f} Hz^2/Hz')

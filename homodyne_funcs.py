@@ -94,7 +94,7 @@ def get_psd(df, fs, method='mean'):
 
     return freqs[2:], total_psd[2:]
 
-def fit_mix_psd(f, psd_on, psd_off, f0, Qr, amp_range=[7.5e4, 8.0e4], trim_range=[0.2, 9e4], plot_name=""):
+def fit_mix_psd(f, psd_on, psd_off, f0, Qr, trim_range=[0.2, 9e4], plot_name=""):
     """
     Get the pixed PSD.
     Parameters
@@ -109,8 +109,6 @@ def fit_mix_psd(f, psd_on, psd_off, f0, Qr, amp_range=[7.5e4, 8.0e4], trim_range
         Resonance frequency.
     Qr : float
         Total quality factor.
-    amp_range[opt, OBSOLETE] : list
-        Amplifier noise range.
     trim_range[opt] : list
         Useful frequencies to work on.
     plot_name[opt] : string
@@ -132,9 +130,9 @@ def fit_mix_psd(f, psd_on, psd_off, f0, Qr, amp_range=[7.5e4, 8.0e4], trim_range
     fm = f[np.where(f>trim_range[0])[0][0]:np.where(f>trim_range[1])[0][0]][psd_clean>0]
     fm = np.array(fm)
 
-    amp_idx_from = np.where(fm>amp_range[0])[0][0]
-    amp_idx_to = np.where(fm<amp_range[1])[0][-1]
-    amp_noise = np.nanmedian(psd_trim[amp_idx_from:amp_idx_to])
+    #amp_idx_from = np.where(fm>amp_range[0])[0][0]
+    #amp_idx_to = np.where(fm<amp_range[1])[0][-1]
+    #amp_noise = np.nanmedian(psd_trim[amp_idx_from:amp_idx_to])
     amp_noise = 0
 
     try:
@@ -162,27 +160,30 @@ def fit_mix_psd(f, psd_on, psd_off, f0, Qr, amp_range=[7.5e4, 8.0e4], trim_range
         print('F I T   R E S U L T S')
         msg(f'tau: {fit_psd_obj.tau*1e6:.1f} us', 'info')
         msg(f'GR noise: {fit_psd_obj.gr_noise:.3f} Hz^2/Hz', 'info')
+        msg(f'tls_b: {fit_psd_obj.tls_b:.3f}', 'info')
+        msg(f'tls_a: {fit_psd_obj.tls_a:.3f}', 'info')
 
         # Get the 1/f knee
         # Generation-Recombination noise
         gr = gr_noise(fm, fit_psd_obj.gr_noise, fit_psd_obj.tau, Qr, f0)
         # TLS noise
-        tls = tls_noise(fm, fit_psd_obj.tls_a, fit_psd_obj.tls_b, Qr, f0)
+        tls = tls_noise(fm, fit_psd_obj.tls_a, fit_psd_obj.tls_b, fit_psd_obj.tau, Qr, f0)
 
         # Select frequencies below 1kHz.
-        gr = gr[fm<1000]
-        tls = tls[fm<1000]
+        gr = gr[fm < 1000]
+        tls = tls[fm < 1000]
         # Get GR-TLS intersection
         f_knee = fm[np.argmin(np.abs(gr-tls))]
         
         msg(f'1/f knee: {f_knee:.3f} Hz', 'info')
 
-        return f[psd_clean_for_nep>0], psd_clean_for_nep[psd_clean_for_nep>0], fit_single_psd, f, f_knee
+        return f[psd_clean_for_nep>0], psd_clean_for_nep[psd_clean_for_nep>0], fit_single_psd, f_knee
 
-    except:
-        return f[psd_clean_for_nep>0], psd_clean_for_nep[psd_clean_for_nep>0], None, None, None
+    except Exception as e:
+        print(e)
+        return f[psd_clean_for_nep>0], psd_clean_for_nep[psd_clean_for_nep>0], None, None
 
-def get_didf_dqdf(f, I, Q, f0, **kwargs):
+def get_didf_dqdf(freqs, I, Q, f0, **kwargs):
     """
     Get the gradients didf/dqdf.
     Parameters
@@ -223,11 +224,11 @@ def get_didf_dqdf(f, I, Q, f0, **kwargs):
     didf = np.gradient(I, freqs)[f0_ind]
     dqdf = np.gradient(Q, freqs)[f0_ind]
 
-    aI = I[f0_ind]-didf*f[f0_ind]
-    aQ = Q[f0_ind]-dqdf*f[f0_ind]
+    aI = I[f0_ind]-didf*freqs[f0_ind]
+    aQ = Q[f0_ind]-dqdf*freqs[f0_ind]
 
-    yi = didf*f + aI
-    yq = dqdf*f + aQ
+    yi = didf*freqs + aI
+    yq = dqdf*freqs + aQ
 
     return I0, Q0, didf, dqdf
 

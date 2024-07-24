@@ -48,7 +48,7 @@ class fit_psd(object):
         # Key arguments
         # ----------------------------------------------
         # Linear binning size
-        self.lin_bin_size = kwargs.pop('lin_bin_size', 5)
+        self.lin_bin_size = kwargs.pop('lin_bin_size', 10)
         # Lower limit amplifier noise
         self.freq_amp = kwargs.pop('freq_amp', 7.5e4)
         # Project name
@@ -86,7 +86,7 @@ class fit_psd(object):
 
         return n_freq, n_psd
     
-    def log_binning(self, freq_psd, psd, n_pts=500):
+    def log_binning(self, freq_psd, psd, n_pts=300):
         """
         Logarithmic binning for PSD.
         Parameters
@@ -145,20 +145,17 @@ class fit_psd(object):
         freq_psd : array
             Frequency [Hz].
         psd : array
-            Power Spectral Density [Hz²/Hz].
+            Power Spectral Densilin_bin_sizety [Hz²/Hz].
         f0_fits : float
             Resonance frequency [Hz].
         Q : float
             Total quality factor.
-        amp_noise : float
-            Amplifier noise.
-            Zero if PSD = PSD_ON - PSD_OFF.
         -----------
         """
 
         # Apply linear binning
-        #n_freq, n_psd = self.lin_binning(freq_psd, psd, w=self.lin_bin_size)
-        n_freq, n_psd = self.log_binning(freq_psd, psd)
+        n_freq, n_psd = self.lin_binning(freq_psd, psd, w=self.lin_bin_size)
+        #n_freq, n_psd = self.log_binning(freq_psd, psd)
 
         # Fit PSD curve
         gr_noise_s, amp_noise_s, tau_s, tls_a_s, tls_b_s, fit_PSD_s = self.fit_spectra_noise(freq_psd, n_freq, 
@@ -166,7 +163,7 @@ class fit_psd(object):
 
         return gr_noise_s, tau_s, amp_noise_s, tls_a_s, tls_b_s, fit_PSD_s
     
-    def guess_params(self, freq, psd, gr_lims=[20, 50]):
+    def guess_params(self, freq, psd, gr_lims=[20, 50], amp_lims=[7.5e4, 8.0e4]):
         """
         Guess parameters to fit PSD.
         Parameters
@@ -211,13 +208,21 @@ class fit_psd(object):
         tlsa_min = gr_min
         tlsa_max = np.max(psd)
 
-        tlsb_min = -2.0
-        tlsb_max = 0.0
+        tlsb_min = -1.0
+        tlsb_max = 0.1
 
+        """
+        # A M P   N O I S E
+        # -------------------------------------
+        amp_idx_from = np.where(freq > amp_lims[0])[0][0]
+        amp_idx_to = np.where(freq < amp_lims[1])[0][-1]
+        amp_guess = np.nanmedian(psd[amp_idx_from:amp_idx_to])
+        """
+        
         guess = np.array([gr_guess, tauqp_guess, tlsa_guess, tlsb_guess])
 
-        bounds = np.array([ [gr_min, tauqp_min, tlsa_min,  tlsb_min ],
-                            [gr_max, tauqp_max, tlsa_max,  tlsb_max ]])
+        bounds = np.array([ [gr_min, tauqp_min, tlsa_min, tlsb_min],
+                            [gr_max, tauqp_max, tlsa_max, tlsb_max]])
 
         return guess, bounds
 
@@ -238,12 +243,14 @@ class fit_psd(object):
         guess, bounds = self.guess_params(bfreqs, psd)
 
         sigma = (1 / abs(np.gradient(bfreqs)))
+        print(sigma)
 
-        popt, pcov = curve_fit(lambda freqs, gr_level, tau_qp, tls_a, tls_b: spectra_noise_model(freqs,
-                    gr_level, tau_qp, tls_a, tls_b, Q, f0_fits, amp_noise), bfreqs, psd, bounds=bounds, p0=guess, sigma=sigma)
+        #tls_b = -0.5
+        popt, pcov = curve_fit(lambda freqs, gr_level, tau_qp, tls_a, tls_b : spectra_noise_model(freqs,
+                    gr_level, tau_qp, tls_a, tls_b, amp_noise, Q, f0_fits), bfreqs, psd, bounds=bounds, p0=guess, sigma=sigma)
         (gr_noise, tau_qp, tls_a, tls_b) = popt
 
-        fit_PSD = spectra_noise_model(ofreqs, gr_noise, tau_qp, tls_a, tls_b, Q, f0_fits, amp_noise)
+        fit_PSD = spectra_noise_model(ofreqs, gr_noise, tau_qp, tls_a, tls_b, amp_noise, Q, f0_fits)
 
         return gr_noise, amp_noise, tau_qp, tls_a, tls_b, fit_PSD
 
@@ -267,7 +274,8 @@ class fit_psd(object):
         # Plot raw PSD
         self._ax.semilogx(freq_psd, 10*np.log10(psd), 'c')
         # Plot binned data
-        n_freq, n_psd = self.log_binning(freq_psd, psd)
+        n_freq, n_psd = self.lin_binning(freq_psd, psd, w=self.lin_bin_size)
+        #n_freq, n_psd = self.log_binning(freq_psd, psd)
         self._ax.semilogx(n_freq, 10*np.log10(n_psd), 'r', lw=1)
         # Plot fitted data
         self._ax.semilogx(freq_psd, 10*np.log10(psd_fit), 'k')
@@ -291,7 +299,6 @@ class fit_psd(object):
             Total quality factor.
         amp_noise : float
             Amplifier noise.
-            Zero if PSD = PSD_ON - PSD_OFF.
         inter : bool
             Activate interactive mode.
         -----------
@@ -302,7 +309,6 @@ class fit_psd(object):
         # Global parameters
         self.Q = Q
         self.f0_fits = f0_fits
-        self.amp_noise = amp_noise
         # Data
         self.freq_psd = freq_psd
         self.psd = psd
@@ -400,10 +406,12 @@ class fit_psd(object):
             elif event.key == 'w':
                 x_sort = np.sort(self.x_range)
                 _freq_psd = np.concatenate((self._freq_psd[:x_sort[0]],self._freq_psd[x_sort[1]:]))
+                
                 # Get amplifier noise
-                self.amp_noise = np.mean(self._psd[np.where(_freq_psd>self.freq_amp)[0]])
-                if not np.isnan(self.amp_noise):
+                #self.amp_noise = np.mean(self._psd[np.where(_freq_psd>self.freq_amp)[0]])
+                self.amp_noise = 0
 
+                if not np.isnan(self.amp_noise):
                     # R E P E A T   F I T
                     # --------------------------
                     # Redefine freq and psd
