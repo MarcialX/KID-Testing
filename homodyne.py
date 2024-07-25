@@ -47,6 +47,8 @@ ion()
 
 import matplotlib as mpl
 mpl.rcParams['axes.linewidth'] = 2
+#rc('font', family='serif', size='16')
+rcParams.update({'font.size': 16, 'font.weight': 'bold', 'family' : 'serif'})
 
 from homodyne_funcs import *
 from fit_resonators import *
@@ -495,7 +497,6 @@ class Homodyne:
                 s21_fit = self.data['vna'][kid][temp][atten]['fit'][sample]['fit_data']
                 err = 20*np.log10(np.abs(s21)) - 20*np.log10(np.abs(s21_fit))
 
-                rc('font', family='serif', size='16')
                 fig = figure(figsize=(20,10))
                 gs = GridSpec(nrows=2, ncols=2, width_ratios=[1, 1], height_ratios=[6, 1])
 
@@ -1118,7 +1119,6 @@ class Homodyne:
         pwrs = np.zeros((tot_kids, tot_temps))
         
         if plot_res:
-            rc('font', family='serif', size='16')
             fig, ax = subplots(1,1, figsize=(15,9))
             subplots_adjust(left=0.110, right=0.99, top=0.97, bottom=0.07, hspace=0.0, wspace=0.0)
 
@@ -1319,7 +1319,6 @@ class Homodyne:
         S = np.load(self.work_dir+self.project_name+'/fit_res_dict/responsivity/responsivity-'+self.data_type+'.npy')
         pwrs = np.load(self.work_dir+self.project_name+'/fit_res_dict/responsivity/responsivity-powers-'+self.data_type+'.npy')
 
-        rc('font', family='serif', size='16')
         fig_nep_kids, ax_nep_kids = subplots(1, 1, figsize=(20,12))
         subplots_adjust(left=0.110, right=0.99, top=0.97, bottom=0.07, hspace=0.0, wspace=0.0)
 
@@ -1495,7 +1494,6 @@ class Homodyne:
             msg('Qr not found. Qr set to zero, i.e. ring-down negligible.', 'warn')
 
         if fit:
-            rcParams.update({'font.size': 15, 'font.weight': 'bold'})
             plot_name = kid + '-' + temp + '-' + atten
 
             f_nep, psd_nep, fit_psd_params, k_knee = fit_mix_psd(f_on, psd_on, psd_off, f0, Qr, plot_name=plot_name, trim_range=[0.1, 8.5e4])
@@ -1941,7 +1939,6 @@ class Homodyne:
         x = int(np.sqrt(len(n_temps)))
         y = int(np.ceil(len(n_temps)/x))
 
-        rcParams.update({'font.size': 15, 'font.weight': 'bold'})
         fig_qi, ax_qi = subplots(x, y, sharey=True, sharex=True, figsize=(20,12))
         subplots_adjust(left=0.06, right=0.99, top=0.97, bottom=0.07, hspace=0.0, wspace=0.0)
         fig_qc, ax_qc = subplots(x, y, sharey=True, sharex=True, figsize=(20,12))
