@@ -47,8 +47,10 @@ ion()
 
 import matplotlib as mpl
 mpl.rcParams['axes.linewidth'] = 2
+mpl.rcParams['font.size'] = 16
+mpl.rcParams['font.weight'] = 'bold'
+mpl.rcParams['font.family'] = 'serif'
 #rc('font', family='serif', size='16')
-rcParams.update({'font.size': 16, 'font.weight': 'bold', 'family' : 'serif'})
 
 from homodyne_funcs import *
 from fit_resonators import *
@@ -58,6 +60,7 @@ fitRes = Manager().dict()
 
 sys.path.append('../')
 from misc.msg_custom import *
+from misc.misc_funcs import *
 from misc.display_dicts import *
 
 from physics.physics_funcs import *
@@ -286,6 +289,7 @@ class Homodyne:
 
                             hdul = fits.open(vna_full_path)
                             hdr = hdul[1].header
+                            hdul.close()
                             data['vna']['full'][temp][atten]['header'][n_sample] = hdr
 
                         elif vna_type == 'seg':
@@ -324,6 +328,7 @@ class Homodyne:
                                 data['vna'][str_kid][temp][atten]['data'][n_sample] = [f_kid, s21_kid]
                                 hdul = fits.open(vna_full_path)
                                 hdr = hdul[1].header
+                                hdul.close()
                                 data['vna'][str_kid][temp][atten]['header'][n_sample] = hdr
 
         return data
@@ -1023,6 +1028,10 @@ class Homodyne:
         fit_psd = kwargs.pop('fit_psd', True)
         # Plot fit results?
         plot_fit = kwargs.pop('plot_fit', True)
+        # Reduced number of points
+        n_pts = kwargs.pop('n_pts', 500)
+        # Savgol smoothing values
+        smooth_params = kwargs.pop('smooth_params', [21, 3])
         # ----------------------------------------------
 
         kids = self._get_kids_to_sweep(kid, mode='ts')
@@ -1034,7 +1043,8 @@ class Homodyne:
 
                 attens = self._get_atten_to_sweep(atten, tmp, kid, mode='ts')
                 for att in attens:
-                    self.get_psd_on_off(kid, tmp, att, ignore=ignore, fit=fit_psd, plot_fit=plot_fit)
+                    self.get_psd_on_off(kid, tmp, att, ignore=ignore, fit=fit_psd, plot_fit=plot_fit, \
+                                        n_pts=n_pts, smooth_params=smooth_params)
 
     def get_responsivity(self, kid, temp_conv='Nqp', var='fr', sample=0, dims=[1,1,1],  \
                         nu=35e9, flag_kid=[], custom=None, data_source='vna', diry_fts="", from_fit=False, \
@@ -1304,14 +1314,13 @@ class Homodyne:
         # ----------------------------------------------
         # Fixed frequencies
         fixed_freqs = kwargs.pop('fixed_freqs', [1, 10, 100])
+        colors = ['r', 'g', 'b']
         # NEP at a given temp
         fixed_temp = kwargs.pop('fixed_temp', "B000")
         # Frequency width
         df = kwargs.pop('df', 0.5)
         # ----------------------------------------------
         
-        ioff()
-
         NEPs = np.zeros_like(fixed_freqs, dtype=float)
         kids = self._get_kids_to_sweep(kid, mode='ts')
 
@@ -1319,6 +1328,7 @@ class Homodyne:
         S = np.load(self.work_dir+self.project_name+'/fit_res_dict/responsivity/responsivity-'+self.data_type+'.npy')
         pwrs = np.load(self.work_dir+self.project_name+'/fit_res_dict/responsivity/responsivity-powers-'+self.data_type+'.npy')
 
+        ioff()
         fig_nep_kids, ax_nep_kids = subplots(1, 1, figsize=(20,12))
         subplots_adjust(left=0.110, right=0.99, top=0.97, bottom=0.07, hspace=0.0, wspace=0.0)
 
@@ -1327,13 +1337,14 @@ class Homodyne:
             msg(kid, 'info')
 
             fig_kid, ax_kid = subplots(1, 1, figsize=(20,12))
-            fig_neps, ax_neps = subplots(1, 1, figsize=(20,12))
+            fig_neps, ax_neps = subplots(1, 1, figsize=(9,6))
             subplots_adjust(left=0.110, right=0.99, top=0.97, bottom=0.07, hspace=0.0, wspace=0.0)
             temps = self._get_temps_to_sweep(temp, kid, mode='ts')
             for t, tmp in enumerate(temps):
                 
                 att = self._get_atten_to_sweep(self.overdriven[k], tmp, kid, mode='ts')[0]
-                f_nep, psd_nep = self.data['ts'][kid][tmp][att]['fit_psd']['psd']
+                f_clean, psd_clean = self.data['ts'][kid][tmp][att]['psd']['clean']
+                f_clean_bin, psd_clean_bin = self.data['ts'][kid][tmp][att]['psd']['binned']['clean']
 
                 # Noise params
                 psd_params = self.data['ts'][kid][tmp][att]['fit_psd']['params']
@@ -1343,24 +1354,32 @@ class Homodyne:
                 f0 = self.data['vna'][kid][tmp][att]['fit']['fr']
                 Qr = self.data['vna'][kid][tmp][att]['fit']['Qr']  
 
-                NEP = self.get_NEP(f_nep, psd_nep, tqp, S[k][t], Qr, f0)
+                NEP, NEP_ncorr = self.get_NEP(f_clean, psd_clean, tqp, S[k][t], Qr, f0)
+                
+                # Get NEP from binning data
+                NEP_bin, NEP_bin_ncorr = self.get_NEP(f_clean_bin, psd_clean_bin, tqp, S[k][t], Qr, f0)
 
                 for i, fx in enumerate(fixed_freqs):
-                    idx_from = np.where(f_nep > fx-df*(i+1))[0][0]
-                    idx_to = np.where(f_nep < fx+df*(i+1))[0][-1]
+                    idx_from = np.where(f_clean > fx-df*(i+1))[0][0]
+                    idx_to = np.where(f_clean < fx+df*(i+1))[0][-1]
                     NEPs[i] = np.median(NEP[idx_from:idx_to])
 
-                ax_neps.plot(pwrs[k][t], NEPs[0], 'rs-')
-                ax_neps.plot(pwrs[k][t], NEPs[1], 'gD-')
-                ax_neps.plot(pwrs[k][t], NEPs[2], 'bo-')
+                    if t == 0:
+                        ax_neps.plot(pwrs[k][t], NEPs[i], 's-', color=colors[i], label=str(fx)+' Hz')
+                    else:
+                        ax_neps.plot(pwrs[k][t], NEPs[i], 's-', color=colors[i])
 
                 if tmp == fixed_temp:
                     temp_NEP = NEP
-                    temp_freq = f_nep
+                    temp_freq = f_clean
 
-                ax_kid.loglog(f_nep, NEP, label=tmp)
+                ax_kid.loglog(f_clean, NEP, label=tmp)
 
-                np.save(self.work_dir+self.project_name+'/fit_res_dict/nep/nep-'+kid+'-'+tmp+'-'+att, [f_nep, NEP])
+                np.save(self.work_dir+self.project_name+'/fit_res_dict/nep/nep-bin-'+kid+'-'+tmp+'-'+att, [f_clean_bin, NEP_bin])
+                np.save(self.work_dir+self.project_name+'/fit_res_dict/nep/nep-bin-nocorr-'+kid+'-'+tmp+'-'+att, [f_clean_bin, NEP_bin_ncorr])
+                np.save(self.work_dir+self.project_name+'/fit_res_dict/nep/nep-nocorr-'+kid+'-'+tmp+'-'+att, [f_clean, NEP_ncorr])
+
+                np.save(self.work_dir+self.project_name+'/fit_res_dict/nep/nep-'+kid+'-'+tmp+'-'+att, [f_clean, NEP])
                 np.save(self.work_dir+self.project_name+'/fit_res_dict/nep/neps_pts-'+kid+'-'+tmp+'-'+att, [fixed_freqs, NEPs])
 
             ax_kid.set_title(kid)
@@ -1417,11 +1436,13 @@ class Homodyne:
         if self.data_type.lower() == 'dark':
             self.Delta = get_Delta(Tcs[self.material])
             NEP = np.sqrt(psd) * (( (eta*tqp/self.Delta)*(np.abs(S)) )**(-1)) * np.sqrt(1 + (2*np.pi*f*tqp)**2 ) * np.sqrt(1 + (2*np.pi*f*Qr/np.pi/f0)**2)
-        
+            NEP_no_corr = None
+
         elif self.data_type.lower() == 'blackbody':
             NEP = np.sqrt(psd) * ( (np.abs(S))**(-1)) * np.sqrt(1 + (2*np.pi*f*tqp)**2 ) * np.sqrt(1 + (2*np.pi*f*Qr/np.pi/f0)**2)
-           
-        return NEP
+            NEP_no_corr = np.sqrt(psd) * ( (np.abs(S))**(-1) )
+
+        return NEP, NEP_no_corr
 
     def calculate_df(self, I, Q, hdr):
         """
@@ -1475,6 +1496,10 @@ class Homodyne:
         fit = kwargs.pop('fit', True)
         # Plot fit results?
         plot_fit = kwargs.pop('plot_fit', True)
+        # Reduced number of points
+        n_pts = kwargs.pop('n_pts', 500)
+        # Savgol smoothing values
+        smooth_params = kwargs.pop('smooth_params', [21, 3])
         # ----------------------------------------------
 
         name = str(kid)+'-'+str(temp)+'-'+str(atten)
@@ -1490,26 +1515,57 @@ class Homodyne:
         try:
             Qr = self.data['vna'][kid][temp][atten]['fit']['Qr']
         except:
-            Qr = 0
             msg('Qr not found. Qr set to zero, i.e. ring-down negligible.', 'warn')
+            Qr = 0
 
+        # S A V E   P S D   O N / O F F
+        # -----------------------------
+        # Save PSD binning
+        down_f_on, down_psd_on = log_binning(f_on, psd_on, n_pts=n_pts)
+        down_f_off, down_psd_off = log_binning(f_off, psd_off, n_pts=n_pts)
+        self.data['ts'][kid][temp][atten]['psd']['binned'] = {}
+        self.data['ts'][kid][temp][atten]['psd']['binned']['on'] = [down_f_on, down_psd_on]
+        self.data['ts'][kid][temp][atten]['psd']['binned']['off'] = [down_f_off, down_psd_off]
+        np.save(self.work_dir+self.project_name+'/fit_psd_dict/psd-bin-'+name, \
+                {'on': [down_f_on, down_psd_on], 'off': [down_f_off, down_psd_off]})            
+
+        # S A V E   P S D   O N - O F F
+        # -----------------------------
+        # Get PSD ON - OFF
+        psd_mix = psd_on - psd_off
+        f_clean = f_on[psd_mix>0]
+        psd_clean = psd_mix[psd_mix>0]
+
+        self.data['ts'][kid][temp][atten]['psd']['clean'] = [f_clean, psd_clean]
+
+        # Bin data
+        down_f_mix, down_psd_mix = log_binning(f_clean, psd_clean, n_pts=n_pts)
+        self.data['ts'][kid][temp][atten]['psd']['binned']['clean'] = [down_f_mix, down_psd_mix]
+        np.save(self.work_dir+self.project_name+'/fit_psd_dict/mix-psd-bin-'+name, [down_f_mix, down_psd_mix])
+
+        # Save PSDs
+        np.save(self.work_dir+self.project_name+'/fit_psd_dict/psd-'+name, self.data['ts'][kid][temp][atten]['psd'])
+
+        # F I T 
+        # -----------------------------
         if fit:
             plot_name = kid + '-' + temp + '-' + atten
 
-            f_nep, psd_nep, fit_psd_params, k_knee = fit_mix_psd(f_on, psd_on, psd_off, f0, Qr, plot_name=plot_name, trim_range=[0.1, 8.5e4])
+            fit_psd_params, k_knee = fit_mix_psd(f_on, psd_mix, f0, Qr, plot_name=plot_name, \
+                                                trim_range=[0.2, 7.5e4], n_pts=n_pts, smooth_params=smooth_params)
 
             self.data['ts'][kid][temp][atten]['fit_psd'] = {}
             self.data['ts'][kid][temp][atten]['fit_psd']['params'] = fit_psd_params
-            self.data['ts'][kid][temp][atten]['fit_psd']['psd'] = [f_nep, psd_nep]
+            #self.data['ts'][kid][temp][atten]['fit_psd']['psd'] = [f_nep, psd_nep]
             self.data['ts'][kid][temp][atten]['fit_psd']['k_knee'] = k_knee
 
             # Save PSD fit    
             np.save(self.work_dir+self.project_name+'/fit_psd_dict/fit_psd-'+name, self.data['ts'][kid][temp][atten]['fit_psd'])
 
-        # Save PSDs
-        np.save(self.work_dir+self.project_name+'/fit_psd_dict/psd-'+name, self.data['ts'][kid][temp][atten]['psd'])
-
+        # P L O T   F I T 
+        # -----------------------------
         if plot_fit:
+
             fig, ax = subplots(1,1, figsize=(20,12))
             subplots_adjust(left=0.07, right=0.99, top=0.94, bottom=0.07, hspace=0.0, wspace=0.0)
 
@@ -1517,7 +1573,7 @@ class Homodyne:
             ax.loglog(f_on, psd_on, 'm', lw=0.75, alpha=0.45)
             ax.loglog(f_off, psd_off, 'g', lw=0.75, alpha=0.45)
             # PSD on-off
-            ax.loglog(f_nep, psd_nep, lw=1.0)
+            ax.loglog(f_clean, psd_clean, lw=1.0)
 
             ax.set_ylim([1e-3, 1e3])
             ax.grid(True, which="both", ls="-")
@@ -1530,21 +1586,21 @@ class Homodyne:
             ax.legend()
 
             if fit:
-                fit_PSD = spectra_noise_model(f_nep, fit_psd_params['gr'], fit_psd_params['tau'], fit_psd_params['tls_a'],
+                fit_PSD = spectra_noise_model(f_clean, fit_psd_params['gr'], fit_psd_params['tau'], fit_psd_params['tls_a'],
                                          fit_psd_params['tls_b'], fit_psd_params['amp_noise'], Qr, f0)
                 
-                ax.loglog(f_nep, fit_PSD, 'k', lw=2.5, label='fit')
+                ax.loglog(f_clean, fit_PSD, 'k', lw=2.5, label='fit')
 
                 # Generation-Recombination noise
-                gr = gr_noise(f_nep, fit_psd_params['gr'], fit_psd_params['tau'], Qr, f0)
+                gr = gr_noise(f_clean, fit_psd_params['gr'], fit_psd_params['tau'], Qr, f0)
                 # TLS noise
-                tls = tls_noise(f_nep, fit_psd_params['tls_a'], fit_psd_params['tls_b'], fit_psd_params['tau'], Qr, f0)
+                tls = tls_noise(f_clean, fit_psd_params['tls_a'], fit_psd_params['tls_b'], fit_psd_params['tau'], Qr, f0)
 
-                ax.loglog(f_nep, gr, 'r-', lw=2.5, label='gr noise')
+                ax.loglog(f_clean, gr, 'r-', lw=2.5, label='gr noise')
                 ax.text(0.5, gr[0]*1.5, f'GR:{gr[0]:.3f} Hz^2/Hz')
 
-                ax.loglog(f_nep, tls, 'b-', lw=2.5, label='1/f')
-                ax.loglog(f_nep, fit_psd_params['amp_noise']*np.ones_like(f_nep), 'g-', label='amp', lw=2)
+                ax.loglog(f_clean, tls, 'b-', lw=2.5, label='1/f')
+                ax.loglog(f_clean, fit_psd_params['amp_noise']*np.ones_like(f_clean), 'g-', label='amp', lw=2)
 
                 tau = fit_psd_params['tau']
                 ax.text(0.8, 0.8, f'Qr  : {round(Qr,-1):,.0f}\nf0   : {round(f0/1e6,-1):,.1f} MHz\ntau : {tau*1e6:.1f} us\nTLS_b : {fit_psd_params['tls_b']:.1f}', transform=ax.transAxes)
@@ -1765,12 +1821,15 @@ class Homodyne:
             ns = int((f.split('-')[-1][1:]).split('.')[0])
 
             try:
+                data = np.load(folder+'/fit_psd_dict/'+f, allow_pickle=True).item()
                 if file_type == 'fit_psd':
-                    fit_sample = np.load(folder+'/fit_psd_dict/'+f, allow_pickle=True).item()
-                    self.data['ts'][kid][temp][atten]['fit_psd'] = fit_sample
+                    self.data['ts'][kid][temp][atten]['fit_psd'] = data
                 elif file_type == 'psd':
-                    psd_sample = np.load(folder+'/fit_psd_dict/'+f, allow_pickle=True).item()
-                    self.data['ts'][kid][temp][atten]['psd'] = psd_sample
+                    self.data['ts'][kid][temp][atten]['psd'] = data
+                elif file_type == 'psd-bin':
+                    self.data['ts'][kid][temp][atten]['psd']['binned'] = data
+                elif file_type == 'mix-psd-bin':
+                    self.data['ts'][kid][temp][atten]['psd']['binned']['clean'] = data
 
             except Exception as e:
                 print('PSD fit. Fail loading '+f+'\n'+str(e))
@@ -2181,36 +2240,69 @@ class Homodyne:
                     I_low = self.data['ts'][kid][tmp][att]['I_on'][0][ts]
                     Q_low = self.data['ts'][kid][tmp][att]['Q_on'][0][ts]
 
-                    ax_I_low[k, ts].plot(ts_low, I_low, lw=0.75, color=cmap(norm_color(k)))
-                    ax_Q_low[k, ts].plot(ts_low, Q_low, lw=0.75, color=cmap(norm_color(k)))
+                    if len(kids) == 1:
+                        ax_I_low[ts].plot(ts_low, I_low, lw=0.75, color=cmap(norm_color(k)))
+                        ax_Q_low[ts].plot(ts_low, Q_low, lw=0.75, color=cmap(norm_color(k)))
 
-                    ax_I_low[k, ts].text(0.85, 0.85, str(ts), {'fontsize': 10, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_I_low[k, ts].transAxes)
-                    ax_Q_low[k, ts].text(0.85, 0.85, str(ts), {'fontsize': 10, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_Q_low[k, ts].transAxes)
+                        ax_I_low[ts].text(0.85, 0.85, str(ts), {'fontsize': 10, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_I_low[ts].transAxes)
+                        ax_Q_low[ts].text(0.85, 0.85, str(ts), {'fontsize': 10, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_Q_low[ts].transAxes)
 
-                    if ts == 0:
-                        ax_I_low[k, ts].set_ylabel(kid+'\n I[V]')
-                        ax_Q_low[k, ts].set_ylabel(kid+'\n Q[V]')
+                        if ts == 0:
+                            ax_I_low[ts].set_ylabel(kid+'\n I[V]')
+                            ax_Q_low[ts].set_ylabel(kid+'\n Q[V]')
 
-                    if k == len(kids)-1:
-                        ax_I_low[k, ts].set_xlabel('\nTime[s]')
-                        ax_Q_low[k, ts].set_xlabel(kid+'\nTime[s]')
+                        if k == len(kids)-1:
+                            ax_I_low[ts].set_xlabel('\nTime[s]')
+                            ax_Q_low[ts].set_xlabel(kid+'\nTime[s]')
+                        else:
+                            ax_I_low[ts].set_xticks([])
+                            ax_Q_low[ts].set_xticks([])
+
+                        if ts in ignore[0]:
+                            ax_I_low[ts].patch.set_facecolor('red')
+                            ax_I_low[ts].patch.set_alpha(0.2)
+
+                            ax_Q_low[ts].patch.set_facecolor('red')
+                            ax_Q_low[ts].patch.set_alpha(0.2)
+
+                        else:
+                            ax_I_low[ts].patch.set_facecolor('green')
+                            ax_I_low[ts].patch.set_alpha(0.2)
+
+                            ax_Q_low[ts].patch.set_facecolor('green')
+                            ax_Q_low[ts].patch.set_alpha(0.2)
+
                     else:
-                        ax_I_low[k, ts].set_xticks([])
-                        ax_Q_low[k, ts].set_xticks([])
+                        ax_I_low[k, ts].plot(ts_low, I_low, lw=0.75, color=cmap(norm_color(k)))
+                        ax_Q_low[k, ts].plot(ts_low, Q_low, lw=0.75, color=cmap(norm_color(k)))
 
-                    if ts in ignore[0]:
-                        ax_I_low[k, ts].patch.set_facecolor('red')
-                        ax_I_low[k, ts].patch.set_alpha(0.2)
+                        ax_I_low[k, ts].text(0.85, 0.85, str(ts), {'fontsize': 10, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_I_low[k, ts].transAxes)
+                        ax_Q_low[k, ts].text(0.85, 0.85, str(ts), {'fontsize': 10, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_Q_low[k, ts].transAxes)
 
-                        ax_Q_low[k, ts].patch.set_facecolor('red')
-                        ax_Q_low[k, ts].patch.set_alpha(0.2)
+                        if ts == 0:
+                            ax_I_low[k, ts].set_ylabel(kid+'\n I[V]')
+                            ax_Q_low[k, ts].set_ylabel(kid+'\n Q[V]')
 
-                    else:
-                        ax_I_low[k, ts].patch.set_facecolor('green')
-                        ax_I_low[k, ts].patch.set_alpha(0.2)
+                        if k == len(kids)-1:
+                            ax_I_low[k, ts].set_xlabel('\nTime[s]')
+                            ax_Q_low[k, ts].set_xlabel(kid+'\nTime[s]')
+                        else:
+                            ax_I_low[k, ts].set_xticks([])
+                            ax_Q_low[k, ts].set_xticks([])
 
-                        ax_Q_low[k, ts].patch.set_facecolor('green')
-                        ax_Q_low[k, ts].patch.set_alpha(0.2)
+                        if ts in ignore[0]:
+                            ax_I_low[k, ts].patch.set_facecolor('red')
+                            ax_I_low[k, ts].patch.set_alpha(0.2)
+
+                            ax_Q_low[k, ts].patch.set_facecolor('red')
+                            ax_Q_low[k, ts].patch.set_alpha(0.2)
+
+                        else:
+                            ax_I_low[k, ts].patch.set_facecolor('green')
+                            ax_I_low[k, ts].patch.set_alpha(0.2)
+
+                            ax_Q_low[k, ts].patch.set_facecolor('green')
+                            ax_Q_low[k, ts].patch.set_alpha(0.2)
 
                 except Exception as e:
                     msg(kid+'-'+tmp+'-'+att+'-'+str(e), 'warn')
@@ -2227,36 +2319,69 @@ class Homodyne:
                     I_high = self.data['ts'][kid][tmp][att]['I_on'][1][th]
                     Q_high = self.data['ts'][kid][tmp][att]['Q_on'][1][th]
 
-                    axs_I[cnt][k, m].plot(ts_high, I_high, lw=0.75, color=cmap(norm_color(k)))
-                    axs_Q[cnt][k, m].plot(ts_high, Q_high, lw=0.75, color=cmap(norm_color(k)))
+                    if len(kids) == 1:
+                        axs_I[cnt][m].plot(ts_high, I_high, lw=0.75, color=cmap(norm_color(k)))
+                        axs_Q[cnt][m].plot(ts_high, Q_high, lw=0.75, color=cmap(norm_color(k)))
 
-                    axs_I[cnt][k, m].text(0.85, 0.85, str(th), {'fontsize': 10, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=axs_I[cnt][k, m].transAxes)
-                    axs_Q[cnt][k, m].text(0.85, 0.85, str(th), {'fontsize': 10, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=axs_I[cnt][k, m].transAxes)
+                        axs_I[cnt][m].text(0.85, 0.85, str(th), {'fontsize': 10, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=axs_I[cnt][m].transAxes)
+                        axs_Q[cnt][m].text(0.85, 0.85, str(th), {'fontsize': 10, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=axs_I[cnt][m].transAxes)
 
-                    if th == 0:
-                        axs_I[cnt][k, m].set_ylabel(kid+'\n I[V]')
-                        axs_Q[cnt][k, m].set_ylabel(kid+'\n Q[V]')
+                        if th == 0:
+                            axs_I[cnt][m].set_ylabel(kid+'\n I[V]')
+                            axs_Q[cnt][m].set_ylabel(kid+'\n Q[V]')
 
-                    if k == len(kids)-1:
-                        axs_I[cnt][k, m].set_xlabel('\nTime[s]')
-                        axs_Q[cnt][k, m].set_xlabel(kid+'\nTime[s]')
-                    else:
-                        axs_I[cnt][k, m].set_xticks([])
-                        axs_Q[cnt][k, m].set_xticks([])
+                        if k == len(kids)-1:
+                            axs_I[cnt][m].set_xlabel('\nTime[s]')
+                            axs_Q[cnt][m].set_xlabel(kid+'\nTime[s]')
+                        else:
+                            axs_I[cnt][m].set_xticks([])
+                            axs_Q[cnt][m].set_xticks([])
 
-                    if th in ignore[1]:
-                        axs_I[cnt][k, m].patch.set_facecolor('red')
-                        axs_I[cnt][k, m].patch.set_alpha(0.2)
+                        if th in ignore[1]:
+                            axs_I[cnt][m].patch.set_facecolor('red')
+                            axs_I[cnt][m].patch.set_alpha(0.2)
 
-                        axs_Q[cnt][k, m].patch.set_facecolor('red')
-                        axs_Q[cnt][k, m].patch.set_alpha(0.2)
+                            axs_Q[cnt][m].patch.set_facecolor('red')
+                            axs_Q[cnt][m].patch.set_alpha(0.2)
 
-                    else:
-                        axs_I[cnt][k, m].patch.set_facecolor('green')
-                        axs_I[cnt][k, m].patch.set_alpha(0.2)
+                        else:
+                            axs_I[cnt][m].patch.set_facecolor('green')
+                            axs_I[cnt][m].patch.set_alpha(0.2)
 
-                        axs_Q[cnt][k, m].patch.set_facecolor('green')
-                        axs_Q[cnt][k, m].patch.set_alpha(0.2)
+                            axs_Q[cnt][m].patch.set_facecolor('green')
+                            axs_Q[cnt][m].patch.set_alpha(0.2)
+
+                    else:                        
+                        axs_I[cnt][k, m].plot(ts_high, I_high, lw=0.75, color=cmap(norm_color(k)))
+                        axs_Q[cnt][k, m].plot(ts_high, Q_high, lw=0.75, color=cmap(norm_color(k)))
+
+                        axs_I[cnt][k, m].text(0.85, 0.85, str(th), {'fontsize': 10, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=axs_I[cnt][k, m].transAxes)
+                        axs_Q[cnt][k, m].text(0.85, 0.85, str(th), {'fontsize': 10, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=axs_I[cnt][k, m].transAxes)
+
+                        if th == 0:
+                            axs_I[cnt][k, m].set_ylabel(kid+'\n I[V]')
+                            axs_Q[cnt][k, m].set_ylabel(kid+'\n Q[V]')
+
+                        if k == len(kids)-1:
+                            axs_I[cnt][k, m].set_xlabel('\nTime[s]')
+                            axs_Q[cnt][k, m].set_xlabel(kid+'\nTime[s]')
+                        else:
+                            axs_I[cnt][k, m].set_xticks([])
+                            axs_Q[cnt][k, m].set_xticks([])
+
+                        if th in ignore[1]:
+                            axs_I[cnt][k, m].patch.set_facecolor('red')
+                            axs_I[cnt][k, m].patch.set_alpha(0.2)
+
+                            axs_Q[cnt][k, m].patch.set_facecolor('red')
+                            axs_Q[cnt][k, m].patch.set_alpha(0.2)
+
+                        else:
+                            axs_I[cnt][k, m].patch.set_facecolor('green')
+                            axs_I[cnt][k, m].patch.set_alpha(0.2)
+
+                            axs_Q[cnt][k, m].patch.set_facecolor('green')
+                            axs_Q[cnt][k, m].patch.set_alpha(0.2)
 
                 except Exception as e:
                     msg(kid+'-'+tmp+'-'+att+'-'+str(e), 'warn')

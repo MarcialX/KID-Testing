@@ -94,7 +94,7 @@ def get_psd(df, fs, method='mean'):
 
     return freqs[2:], total_psd[2:]
 
-def fit_mix_psd(f, psd_on, psd_off, f0, Qr, trim_range=[0.2, 9e4], plot_name=""):
+def fit_mix_psd(f, psd_mix, f0, Qr, trim_range=[0.2, 9e4], plot_name="", n_pts=500, smooth_params=[21, 3]):
     """
     Get the pixed PSD.
     Parameters
@@ -117,14 +117,11 @@ def fit_mix_psd(f, psd_on, psd_off, f0, Qr, trim_range=[0.2, 9e4], plot_name="")
     """
 
     # Create fit object
-    fit_psd_obj = fit_psd(plot_name=plot_name)
+    fit_psd_obj = fit_psd(plot_name=plot_name, n_pts=n_pts, smooth_params=smooth_params)
 
     ioff()
 
-    psd_clean = psd_on[np.where(f>trim_range[0])[0][0]:np.where(f>trim_range[1])[0][0]] - \
-                psd_off[np.where(f>trim_range[0])[0][0]:np.where(f>trim_range[1])[0][0]]
-    
-    psd_clean_for_nep = psd_on - psd_off
+    psd_clean = psd_mix[np.where(f>trim_range[0])[0][0]:np.where(f>trim_range[1])[0][0]]
     psd_trim = psd_clean[psd_clean>0]
 
     fm = f[np.where(f>trim_range[0])[0][0]:np.where(f>trim_range[1])[0][0]][psd_clean>0]
@@ -177,11 +174,11 @@ def fit_mix_psd(f, psd_on, psd_off, f0, Qr, trim_range=[0.2, 9e4], plot_name="")
         
         msg(f'1/f knee: {f_knee:.3f} Hz', 'info')
 
-        return f[psd_clean_for_nep>0], psd_clean_for_nep[psd_clean_for_nep>0], fit_single_psd, f_knee
+        return fit_single_psd, f_knee
 
     except Exception as e:
         print(e)
-        return f[psd_clean_for_nep>0], psd_clean_for_nep[psd_clean_for_nep>0], None, None
+        return None, None
 
 def get_didf_dqdf(freqs, I, Q, f0, **kwargs):
     """
@@ -352,7 +349,7 @@ def mix_psd(freqs, psd, xp=800):
 
     return full_freq, full_psd
 
-def get_noise(diry, files, deglitch=True, avoid=[[], []]):
+def get_noise(diry, files, avoid=[[], []]):
     """
     Get noise data from high/low frequency sampling rate.
     Parameters
@@ -361,8 +358,6 @@ def get_noise(diry, files, deglitch=True, avoid=[[], []]):
         Data directory.
     files : array
         Timestream high/low frequency filenames.
-    deglitch [opt] : bool
-        Apply deglitching?
     avoid [opt] : list
         List the index number of the avoided timestreams.
     ----------
@@ -413,6 +408,7 @@ def get_noise_from_single_file(path, deglitch=False, avoid=[[0, 1], []], **kwarg
     # Get timestream header
     hdul = fits.open(path)
     hdr = hdul[1].header
+    hdul.close()
 
     fs = hdr['SAMPLERA']
 

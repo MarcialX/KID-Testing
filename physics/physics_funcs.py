@@ -106,8 +106,8 @@ def tls_noise(freqs, tls_a, tls_b, tau_qp, Qr, f0):
     -----------
     """
 
-    #return tls_a*freqs**(tls_b) / (1.+(2*np.pi*freqs*Qr/np.pi/f0)**2)
-    return tls_a*freqs**(tls_b) / (1.+(2*np.pi*freqs*tau_qp)**2) / (1.+(2*np.pi*freqs*Qr/np.pi/f0)**2)
+    #return (tls_a*freqs**(tls_b)) / (1.+(2*np.pi*freqs*Qr/np.pi/f0)**2)
+    return (tls_a*freqs**(tls_b)) / (1.+(2*np.pi*freqs*tau_qp)**2) / (1.+(2*np.pi*freqs*Qr/np.pi/f0)**2)
 
 def f0_vs_pwr_model(P, a, b):
     """

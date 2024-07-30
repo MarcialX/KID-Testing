@@ -294,6 +294,10 @@ for s, step in enumerate(TASKS):
                 the_args['fit_psd'] = task_params['fit_psd']            
             elif p == 'plot_fit':
                 the_args['plot_fit'] = task_params['plot_fit']
+            elif p == 'n_pts':
+                the_args['n_pts'] = task_params['n_pts']
+            elif p == 'smooth_params':
+                the_args['smooth_params'] = task_params['smooth_params']
 
         h.get_all_psd(kids, temps, atts, **the_args)
 

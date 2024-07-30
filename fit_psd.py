@@ -32,6 +32,7 @@ from matplotlib.pyplot import *
 
 sys.path.append('../')
 from physics.physics_funcs import *
+from misc.misc_funcs import *
 
 
 class fit_psd(object):
@@ -53,89 +54,11 @@ class fit_psd(object):
         self.freq_amp = kwargs.pop('freq_amp', 7.5e4)
         # Project name
         self.plot_name = kwargs.pop('plot_name', '')
+        # Reduced number of points
+        self.n_pts = kwargs.pop('n_pts', 500)
+        # Savgol smoothing values
+        self.smooth_params = kwargs.pop('smooth_params', [21, 3])
         # ----------------------------------------------
-
-    def lin_binning(self, freq_psd, psd, w=10):
-        """
-        Linear binning PSD.
-        Parameters
-        -----------
-        freq_psd : array
-            Frequency [Hz].
-        psd : array
-            Power Spectral Density [Hz²/Hz].
-        w : int
-            Size binning.
-        -----------
-        """
-        n_psd = []
-        n_freq = []
-        psd_accum = 0
-        freq_accum = 0
-        for i, p in enumerate(psd):
-            if i%w == 0 and i != 0:
-                n_psd.append(psd_accum/w)
-                n_freq.append(freq_accum/w)
-                psd_accum = 0
-                freq_accum = 0
-            psd_accum += p
-            freq_accum += freq_psd[i]
-        
-        n_freq = np.array(n_freq)
-        n_psd = np.array(n_psd)
-
-        return n_freq, n_psd
-    
-    def log_binning(self, freq_psd, psd, n_pts=300):
-        """
-        Logarithmic binning for PSD.
-        Parameters
-        -----------
-        freq_psd : array
-            Frequency [Hz].
-        psd : array
-            Power Spectral Density [Hz²/Hz].
-        n_pts : int
-            Number of points.
-        -----------
-        """
-
-        start = freq_psd[0]
-        stop = freq_psd[-1]
-        """
-        n = 0
-        central_pts = []
-        for i in range(n_pts+1):
-            if int(n**2) > len(freq_psd):
-                break
-            else:
-                central_pts.append(freq_psd[int(n**2)])
-            n += 1
-        central_pts = np.array(central_pts)
-        """
-        """
-        if n_pts > len(central_pts):
-            tot_pts = len(central_pts)
-        else:
-            tot_pts = n_pts
-        """
-        central_pts = np.logspace(np.log10(start), np.log10(stop), n_pts+1)
-       
-        n_freq = []
-        n_psd = []
-        for i in range(n_pts):
-            idx_start = np.where(freq_psd > central_pts[i])[0][0]
-            idx_stop = np.where(freq_psd <= central_pts[i+1])[0][-1] + 1
-
-            if not np.isnan(np.mean(freq_psd[idx_start:idx_stop])):
-                n_freq.append(np.mean(freq_psd[idx_start:idx_stop]))
-                n_psd.append(np.median(psd[idx_start:idx_stop]))
-
-        n_freq = np.array(n_freq)
-        n_psd = np.array(n_psd)
-
-        return n_freq, n_psd
-
 
     def get_psd_fit(self, freq_psd, psd, f0_fits, Q, amp_noise):
         """
@@ -154,14 +77,15 @@ class fit_psd(object):
         """
 
         # Apply linear binning
-        n_freq, n_psd = self.lin_binning(freq_psd, psd, w=self.lin_bin_size)
-        #n_freq, n_psd = self.log_binning(freq_psd, psd)
+        #n_freq, n_psd = lin_binning(freq_psd, psd, w=self.lin_bin_size)
+        n_freq, n_psd = log_binning(freq_psd, psd, n_pts=self.n_pts)
+        n_psd = savgol_filter(n_psd, *self.smooth_params) 
 
         # Fit PSD curve
         gr_noise_s, amp_noise_s, tau_s, tls_a_s, tls_b_s, fit_PSD_s = self.fit_spectra_noise(freq_psd, n_freq, 
                 n_psd, f0_fits, Q, amp_noise)
 
-        return gr_noise_s, tau_s, amp_noise_s, tls_a_s, tls_b_s, fit_PSD_s
+        return gr_noise_s, tau_s, amp_noise_s, tls_a_s, tls_b_s, fit_PSD_s, n_freq, n_psd
     
     def guess_params(self, freq, psd, gr_lims=[20, 50], amp_lims=[7.5e4, 8.0e4]):
         """
@@ -208,8 +132,8 @@ class fit_psd(object):
         tlsa_min = gr_min
         tlsa_max = np.max(psd)
 
-        tlsb_min = -1.0
-        tlsb_max = 0.1
+        tlsb_min = -1.5
+        tlsb_max = -0.01
 
         """
         # A M P   N O I S E
@@ -243,7 +167,6 @@ class fit_psd(object):
         guess, bounds = self.guess_params(bfreqs, psd)
 
         sigma = (1 / abs(np.gradient(bfreqs)))
-        print(sigma)
 
         #tls_b = -0.5
         popt, pcov = curve_fit(lambda freqs, gr_level, tau_qp, tls_a, tls_b : spectra_noise_model(freqs,
@@ -274,9 +197,11 @@ class fit_psd(object):
         # Plot raw PSD
         self._ax.semilogx(freq_psd, 10*np.log10(psd), 'c')
         # Plot binned data
-        n_freq, n_psd = self.lin_binning(freq_psd, psd, w=self.lin_bin_size)
-        #n_freq, n_psd = self.log_binning(freq_psd, psd)
-        self._ax.semilogx(n_freq, 10*np.log10(n_psd), 'r', lw=1)
+        #n_freq, n_psd = lin_binning(freq_psd, psd, w=self.lin_bin_size)
+        n_freq, n_psd = log_binning(freq_psd, psd, n_pts=self.n_pts)
+        n_psd = savgol_filter(n_psd, *self.smooth_params)
+
+        self._ax.semilogx(n_freq, 10*np.log10(n_psd), 'r.-', lw=1)
         # Plot fitted data
         self._ax.semilogx(freq_psd, 10*np.log10(psd_fit), 'k')
 
@@ -313,7 +238,13 @@ class fit_psd(object):
         self.freq_psd = freq_psd
         self.psd = psd
         # Apply fit
-        gr_noise_s, tau_s, amp_noise_s, tls_a_s, tls_b_s, fit_PSD_s = self.get_psd_fit(freq_psd, psd, f0_fits, Q, amp_noise)
+        gr_noise_s, tau_s, amp_noise_s, tls_a_s, tls_b_s, fit_PSD_s, down_f, \
+            down_psd = self.get_psd_fit(freq_psd, psd, f0_fits, Q, amp_noise)
+
+        # B I N N I N G
+        # ----------------------
+        self.down_f = down_f
+        self.down_psd = down_psd
 
         # F I T   R E S U L T S
         # ----------------------
@@ -418,7 +349,7 @@ class fit_psd(object):
                     self._freq_psd = _freq_psd
                     self._psd = np.concatenate((self._psd[:x_sort[0]],self._psd[x_sort[1]:]))
                     # Fit new curve
-                    gr_noise_s, tau_s, amp_noise_s, tls_a_s, tls_b_s, fit_PSD_s = self.get_psd_fit(self._freq_psd, \
+                    gr_noise_s, tau_s, amp_noise_s, tls_a_s, tls_b_s, fit_PSD_s, down_f, down_psd = self.get_psd_fit(self._freq_psd, \
                                                                 self._psd, self.f0_fits, self.Q, self.amp_noise)
 
                     # S A V E   P A R A M S

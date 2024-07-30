@@ -226,7 +226,7 @@ def coarse_fit(f, data, **kwargs):
     return ar, ai, Qr, fr, Qc, phi
 
 
-@timeout(150)
+@timeout(100)
 def fit_resonator(f, s21, n=3.5, **kwargs):
     """
         Fit resonator based on Gao model.
