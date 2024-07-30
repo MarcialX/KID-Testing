@@ -1321,7 +1321,7 @@ class Homodyne:
         df = kwargs.pop('df', 0.5)
         # ----------------------------------------------
         
-        NEPs = np.zeros_like(fixed_freqs, dtype=float)
+        NEPs = np.zeros((2, len(fixed_freqs)), dtype=float)
         kids = self._get_kids_to_sweep(kid, mode='ts')
 
         # Get responsivity
@@ -1362,12 +1362,14 @@ class Homodyne:
                 for i, fx in enumerate(fixed_freqs):
                     idx_from = np.where(f_clean > fx-df*(i+1))[0][0]
                     idx_to = np.where(f_clean < fx+df*(i+1))[0][-1]
-                    NEPs[i] = np.median(NEP[idx_from:idx_to])
-
+                    NEPs[0][i] = np.mean(NEP[idx_from:idx_to])
+                    NEPs[1][i] = np.std(NEP[idx_from:idx_to])
+                    
+                    ax_neps.errorbar(pwrs[k][t], NEPs[0][i], yerr=NEPs[1][i], color=colors[i], marker='s', ecolor='k', capsize=2)
                     if t == 0:
-                        ax_neps.plot(pwrs[k][t], NEPs[i], 's-', color=colors[i], label=str(fx)+' Hz')
+                        ax_neps.plot(pwrs[k][t], NEPs[0][i], 's-', color=colors[i], label=str(fx)+' Hz')
                     else:
-                        ax_neps.plot(pwrs[k][t], NEPs[i], 's-', color=colors[i])
+                        ax_neps.plot(pwrs[k][t], NEPs[0][i], 's-', color=colors[i])
 
                 if tmp == fixed_temp:
                     temp_NEP = NEP
@@ -1380,7 +1382,7 @@ class Homodyne:
                 np.save(self.work_dir+self.project_name+'/fit_res_dict/nep/nep-nocorr-'+kid+'-'+tmp+'-'+att, [f_clean, NEP_ncorr])
 
                 np.save(self.work_dir+self.project_name+'/fit_res_dict/nep/nep-'+kid+'-'+tmp+'-'+att, [f_clean, NEP])
-                np.save(self.work_dir+self.project_name+'/fit_res_dict/nep/neps_pts-'+kid+'-'+tmp+'-'+att, [fixed_freqs, NEPs])
+                np.save(self.work_dir+self.project_name+'/fit_res_dict/nep/neps_pts-'+kid+'-'+tmp+'-'+att, NEPs)
 
             ax_kid.set_title(kid)
             ax_kid.set_xlabel('Frequency [MHz]')
@@ -1403,6 +1405,8 @@ class Homodyne:
                 ax_nep_kids.set_ylabel('NEP [W/sqrt(Hz)]')
             except:
                 pass
+
+        np.save(self.work_dir+self.project_name+'/fit_res_dict/nep/nep_freqs', fixed_freqs)
 
         ax_nep_kids.grid(True, which="both", ls="-")
         ax_nep_kids.legend()
