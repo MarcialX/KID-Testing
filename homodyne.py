@@ -2802,7 +2802,7 @@ class Homodyne:
 
     def _fit_res_join(self, kid, temp, atten, f, s21, n, tau):
         """
-            Fit resonator job.
+        Fit resonator job.
         """
         fit_res = fit_resonator(f, s21, n=n, tau=tau)
         fitRes[kid+','+temp+','+atten] = fit_res
@@ -2888,14 +2888,22 @@ class Homodyne:
     def _get_meas_char_from_foldername(self, foldername):
         """
         Get the date, analysis type and sample from the folder name.
+        Parameters
+        ----------
+        foldername : string
+            Foldername from where data is extracted.
+        ----------
         """
+
         sample = 1
         items = foldername.split('_')
         if len(items) == 4:
+
             date, data_type, _, meas = items
         elif len(items) == 5:
             date, data_type, _, meas, sample = items
             sample += 1
+       
         else:
             return None
 
