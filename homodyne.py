@@ -698,7 +698,10 @@ class Homodyne:
                     text_color = 'white'
                     box_color = 'purple'
 
-                    ax[jj,ii].text(np.min(s21.real)-0.25*(np.max(s21.real)-np.min(s21.real)), np.min(s21.imag), attens[idx_map] + ' dB', {'fontsize': text_size, 'color':text_color}, bbox=dict(facecolor=box_color, alpha=0.95))
+                    ax[jj,ii].text(0.2, 0.2, attens[idx_map] + ' dB', \
+                                    {'fontsize': text_size, 'color':text_color}, \
+                                    bbox=dict(facecolor=box_color, alpha=0.95), \
+                                    transform=ax[jj,ii].transAxes)
                     self.over_atts_mtx[jj,ii] = float(attens[idx_map][1:])
                     self.over_atts_mask[jj,ii] = True
 
@@ -1607,7 +1610,9 @@ class Homodyne:
                 ax.loglog(f_clean, fit_psd_params['amp_noise']*np.ones_like(f_clean), 'g-', label='amp', lw=2)
 
                 tau = fit_psd_params['tau']
-                ax.text(0.8, 0.8, f'Qr  : {round(Qr,-1):,.0f}\nf0   : {round(f0/1e6,-1):,.1f} MHz\ntau : {tau*1e6:.1f} us\nTLS_b : {fit_psd_params['tls_b']:.1f}', transform=ax.transAxes)
+                ax.text(0.8, 0.8, \
+                        f'Qr  : {round(Qr,-1):,.0f}\nf0   : {round(f0/1e6,-1):,.1f} MHz\ntau : {tau*1e6:.1f} us\nTLS_b : {fit_psd_params['tls_b']:.1f}', \
+                        transform=ax.transAxes)
 
                 ax.axhline(fit_psd_params['gr'], color='k', linestyle='dashed', lw=2)
 
@@ -2496,25 +2501,46 @@ class Homodyne:
                                 elif self.data_type.lower() == 'blackbody':                              
                                     real_temp = f'{self.data['ts'][kid][tm][single_atten]['hdr_on'][0]['BLACKBOD']:.1f}K'
 
-                            axm[j,i].plot(f/1e6, 20*np.log10(np.abs(s21)), color=single_color, alpha=alpha, lw=1.75, label=real_temp)
+                            if xg == 1 or yg == 1:
+                                axm[i].plot(f/1e6, 20*np.log10(np.abs(s21)), color=single_color, alpha=alpha, lw=1.75, label=real_temp)
+                            else:
+                                axm[j,i].plot(f/1e6, 20*np.log10(np.abs(s21)), color=single_color, alpha=alpha, lw=1.75, label=real_temp)
+                            
                             if t == 0 and a == len(attens)-1:
-                                axm[j,i].text(f[0]/1e6+0.65*(f[-1]-f[0])/1e6, np.min(20*np.log10(np.abs(s21)))+ \
-                                            0.1*(np.max(20*np.log10(np.abs(s21)))-np.min(20*np.log10(np.abs(s21)))), \
-                                            kid+'\n'+single_atten[1:]+'dB', {'fontsize':17, 'color':'blue'})
+                                if xg == 1 or yg == 1:
+                                    axm[i].text(f[0]/1e6+0.65*(f[-1]-f[0])/1e6, np.min(20*np.log10(np.abs(s21)))+ \
+                                                0.1*(np.max(20*np.log10(np.abs(s21)))-np.min(20*np.log10(np.abs(s21)))), \
+                                                kid+'\n'+single_atten[1:]+'dB', {'fontsize':17, 'color':'blue'})
+                                else:
+                                    axm[j,i].text(f[0]/1e6+0.65*(f[-1]-f[0])/1e6, np.min(20*np.log10(np.abs(s21)))+ \
+                                                0.1*(np.max(20*np.log10(np.abs(s21)))-np.min(20*np.log10(np.abs(s21)))), \
+                                                kid+'\n'+single_atten[1:]+'dB', {'fontsize':17, 'color':'blue'})
 
                             if i == 0:
-                                axm[j,i].set_ylabel('S21 [dB]', fontsize=18, weight='bold')
+                                if xg == 1 or yg == 1:
+                                    axm[i].set_ylabel('S21 [dB]', fontsize=18, weight='bold')
+                                else:
+                                    axm[j,i].set_ylabel('S21 [dB]', fontsize=18, weight='bold')
                             if j == xg-1:
-                                axm[j,i].set_xlabel('Frequency [MHz]', fontsize=18, weight='bold')
+                                if xg == 1 or yg == 1:
+                                    axm[i].set_xlabel('Frequency [MHz]', fontsize=18, weight='bold')
+                                else:
+                                    axm[j,i].set_xlabel('Frequency [MHz]', fontsize=18, weight='bold')
 
                         except Exception as e:
                             msg('Error plotting data\n'+str(e), 'warn')
 
             else:
-                axm[j,i].axis('off')
+                if xg == 1 or yg == 1:
+                    axm[i].axis('off')
+                else:
+                    axm[j,i].axis('off')
 
             if k == len(kids)-1:
-                axm[j,i].legend(ncol=2)
+                if xg == 1 or yg == 1:
+                    axm[i].legend(ncol=2)
+                else:
+                    axm[j,i].legend(ncol=2)
 
         show()
 
@@ -2626,36 +2652,6 @@ class Homodyne:
                 fig.savefig(self.work_dir+self.project_name+'/fit_res_results/summary_plots/'+fig_name+'.png')
                 close(fig)
 
-    def get_sweeps_from_vna(self, temp, atten, thresh=1e5):
-        """
-        Get the sweeps from the segmented VNA sweeps.
-        Parameters
-        ----------
-        temp : int
-            Temperature: base or blackbody.
-        atten : int
-            Attenuation.
-        thresh : float
-            Detection threshold.
-        ----------
-        """
-
-        # Find KIDs
-        n_kids = np.where(np.diff(f)>thresh)[0]
-        n_kids = np.concatenate(([0], n_kids, [-1]))
-
-        # Get detector
-        from_idx = n_kids[kid]+1
-        to_idx = n_kids[kid+1]
-        # Get individual detector
-        f_k = f[from_idx:to_idx]
-        # I, Q
-        I_k = I[from_idx:to_idx]
-        Q_k = Q[from_idx:to_idx]
-        s21_k =  I_k + 1j*Q_k
-
-        return f_k, s21_k, hdr
-
     def _get_meas_type(self):
         """
         Get measurement type, dark or blackbody measurement.
@@ -2672,12 +2668,21 @@ class Homodyne:
     def _get_kids_to_sweep(self, kid, mode='vna'):
         """
         Get kids to sweep.
+        Parameters
+        ----------
+        kid : int/list
+            Detectors as a list of ints, single ints
+            or None for all the objects.
+        ----------
         """
+
         if kid is None:
             vna_keys = self.data[mode].keys()
             kids = [ x for x in vna_keys if 'K' in x ]
+
         elif isinstance(kid, int):
             kids = ['K'+str(kid).zfill(3)]
+        
         elif isinstance(kid, list):
             kids = []
             for k in kid:
@@ -2692,7 +2697,17 @@ class Homodyne:
     def _get_temps_to_sweep(self, temp, kid=None, mode='vna', vna_type='seg'):
         """
         Get the temperatures to sweep.
+        Parameters
+        ----------
+        temp : int/list
+            Base/Blackbody temperatures as a list of 
+            ints, single ints or None for all the objects.
+        kid(opt) : int/list
+            Detectors as a list of ints, single ints
+            or None for all the objects.
+        ----------
         """
+        
         type_data, nzeros = self._get_meas_type()
 
         if temp is None:
@@ -2706,11 +2721,12 @@ class Homodyne:
 
         elif isinstance(temp, int) or isinstance(temp, np.int64):
             temps = [type_data+str(temp).zfill(nzeros)]
+            
         elif isinstance(temp, list) or isinstance(temp, np.ndarray):
             temps = []
             for t in temp:
                 if isinstance(t, int) or isinstance(t, np.int64):
-                    temps.append(type_data+f'{t}')
+                    temps.append(type_data+str(t).zfill(nzeros))
                 elif isinstance(t, str):
                     if t.startswith(type_data) and t[1:].replace('.', '', 1).isdigit():
                         temps.append(t)
@@ -2723,6 +2739,18 @@ class Homodyne:
     def _get_atten_to_sweep(self, atten, temp=None, kid=None, mode='vna'):
         """
         Get the attenuations to sweep.
+        Parameters
+        ----------
+        atten : int/list
+            Input attenuations as a list of ints,
+            single ints or None for all the objects.
+        temp(opt) : int/list
+            Base/Blackbody temperatures as a list of 
+            ints, single ints or None for all the objects.
+        kid(opt) : int/list
+            Detectors as a list of ints, single ints
+            or None for all the objects.
+        ----------
         """
 
         if atten is None:
@@ -2730,8 +2758,10 @@ class Homodyne:
                 attens = self.data[mode][kid][temp].keys()
             else:
                 return None
+            
         elif isinstance(atten, int) or isinstance(atten, np.int64):
             attens = [f'A{atten:.1f}']
+
         elif isinstance(atten, list) or isinstance(atten, np.ndarray):
             attens = []
             for a in atten:
@@ -2740,8 +2770,10 @@ class Homodyne:
                 elif isinstance(a, str):
                     if a.startswith('A') and a[1:].replace('.', '', 1).isdigit():
                         attens.append(a)
+
         elif isinstance(atten, float):
             attens = [f'A{atten:.1f}']
+
         else:
             attens = [atten]
 
@@ -2751,7 +2783,6 @@ class Homodyne:
         attens = list(attens)
 
         n_attens = [ attens[sort_idx[i]] for i in range(len(a_num)) ]
-
         #attens = sorted(attens)
         return n_attens
 
