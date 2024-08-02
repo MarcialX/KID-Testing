@@ -39,6 +39,91 @@ from matplotlib.pyplot import *
 from .physical_constants import *
 
 
+def nep_gr(Nqp, tqp, Tc, eta=0.6):
+    """
+    Generation-Recombination noise.
+    Parameters
+    ----------
+    Nqp : float
+        Number of quasiparticles.
+    tqp : float
+        Quasiparticle lifetime.
+    Tc : float
+        Critical temperature.
+    eta : float
+        Conversion efficiency photon energy - quasiparticles.
+    ----------
+    """
+
+    Delta = get_Delta(Tc)
+    NEP_gr = (2*Delta/eta)*np.sqrt(Nqp/tqp)
+    return NEP_gr
+
+def nep_rec(P):
+    """
+    Optical Recombination noise.
+    Parameters
+    ----------
+    P : float
+        Optical power.
+    ----------
+    """
+
+    NEP_rec = np.sqrt(2*P*h*nu)
+    return NEP_rec
+
+def nep_shot(f0, P, eta=0.6):
+    """
+    NEP shot noise.
+    Parameters
+    ----------
+    f0 : float
+        Central frequency.
+    P : float
+        Power
+    eta : float
+        Optical efficiency.
+    ----------
+    """
+
+    NEP_shot = np.sqrt(2*h*f0*P/eta)
+    return NEP_shot
+
+def nep_wave(dnu, P):
+    """
+    NEP wave noise.
+    Parameters
+    ----------
+    dnu : float
+        Bandwidth.
+    P : float
+        Power
+    ----------
+    """
+
+    NEP_wave = np.sqrt(2*P**2/dnu)
+    return NEP_wave
+
+def tr(T, Tc, t0):
+    """
+    Get tau_r time as described in Pan et al. 2023.
+    Parameters
+    ----------
+    T : float
+        Base temperature.
+    Tc : float
+        Critical temperature.
+    t0 : float
+        Material-dependent characteristic electron-phonon
+        interaction time and can be modified by impurity 
+        scattering.
+    ----------
+    """
+
+    Delta = get_Delta(Tc)
+    tr = (t0/np.sqrt(np.pi))*(Kb*Tc/(2*Delta))**(5/2) * np.sqrt(Tc/T) * np.exp(Delta/Kb/T)
+    return tr
+
 def spectra_noise_model(freqs, gr_level, tau_qp, tls_a, tls_b, amp_noise, Qr=20e3, f0=1e9):
     """
     Spectra noise model.
