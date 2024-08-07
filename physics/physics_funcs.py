@@ -312,6 +312,63 @@ def get_nqp(N0, T, Delta):
     """
     return 2 * N0 * np.sqrt( 2*np.pi*Kb*T*Delta ) * np.exp(-(Delta/(Kb*T)))
 
+def n_occ(freq, T):
+    """
+    Photon occupation number as defined in
+    https://github.com/chill90/BoloCalc
+    Parameters
+    ----------
+    freq : float/array
+        Frequency array [Hz].
+    temp : float/array
+        Temperature [K].
+    ----------
+    """
+
+    return 1/(np.exp((h*freq)/(Kb*T))-1)
+
+def dPdT(freq, tx):
+    """
+    Incident power fluctuations due to fluctuations
+    in CMB temperature.
+    Ref: Hill et al 2019 (SO Collaboration)
+    Parameters
+    ----------
+    freq : float/array
+        Frequency array [Hz]
+    tx : 
+        Transmission efficiency [K]
+    ----------
+    """
+
+    a = (1/Kb) * ((h*freq/Tcmb)**2) * (n_occ(freq, Tcmb)**2) * np.exp((h*freq)/(Kb*Tcmb)) * tx
+    return integrate.trapezoid(a, freq)
+
+def load_tx(diry, kid, freq_upper_limit=350):
+    """
+    Load transmission efficieny file (FTS spectra).
+    Paramteres
+    ----------
+    diry : string
+        Directory
+    kid : string
+        Detector number.
+    freq_upper_limit : float
+        Frequency upper limit [GHz]. Frequency beyond is discarded.
+    ----------
+    """
+
+    # Load transmission.
+    fts = np.load(diry+'/K'+str(kid).zfill(3)+'.npy')
+    f = fts[:,0][1:]
+    tx = fts[:,1][1:]
+
+    # Filter transmission, just select up to an upper limit.
+    f_sel = f[np.where(f < freq_upper_limit)[0]]
+    tx_sel = tx[np.where(f < freq_upper_limit)[0]]
+
+    return f_sel, tx_sel
+
 def get_power_from_FTS(diry, kid, T, n_pols=2):
     """
     Get the power from the FTS.
@@ -328,16 +385,17 @@ def get_power_from_FTS(diry, kid, T, n_pols=2):
     ----------
     """
 
-    fts = np.load(diry+'/K'+str(kid).zfill(3)+'.npy')
-    f = fts[:,0][1:]
-    tx = fts[:,1][1:]
+    # Load transmission.
+    f_sel, tx_sel = load_tx(diry, kid, freq_upper_limit=350)
 
-    fl = 350
-    f_sel = f[np.where(f<fl)[0]]
-    tx_sel = tx[np.where(f<fl)[0]]
-
+    # Transmission * BB(T)
     spec = tx_sel*planck(f_sel*1e9, T)
-    nu_max = f_sel[np.argmax(tx_sel*1e9)]*1e9
+    # Get the central frequency
+    f0 = f_sel[np.argmax(tx_sel*1e9)]*1e9
+    print(f'F0: {f0:.2f} GHz')
+
+    # A*Omega assuming beam fill.
+    Ao = ((c/f0)**2)/n_pols
 
     """
     figure()
@@ -346,9 +404,8 @@ def get_power_from_FTS(diry, kid, T, n_pols=2):
     print('Central freq: ', nu_max)
     show()
     """
-
-    Ao = ((c/nu_max)**2)/n_pols
-
+      
+    # Get total power
     P = integrate.trapezoid(spec, f_sel*1e9) * Ao
 
     return P

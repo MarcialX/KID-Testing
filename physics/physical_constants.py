@@ -26,6 +26,8 @@ Kb = 1.380649e-23
 h = 6.62607015e-34
 # Light speed [m/s]
 c = 299792458
+# CMB temperature [K]
+Tcmb = 2.725
 
 # Single spin density of states at the Fermi level [um^-3 J^-1]
 N0s = {

@@ -221,8 +221,12 @@ for s, step in enumerate(TASKS):
             plot_params = plot_name[name]
             if name == 'Q_vs_pwr':
                 # Quality factors vs drive power
-                if 'cmap' in plot_params:
-                    the_args['cmap'] = plot_params['cmap']
+                for p in plot_params.keys():
+                    if p == 'cmap':
+                        the_args['cmap'] = plot_params['cmap']
+                    elif p == 'ignore':
+                        the_args['ignore'] = plot_params['ignore']
+
                 h.plot_qs_vs_drive_power(kids, temps, atts, **the_args)
 
             elif name == 's21':
