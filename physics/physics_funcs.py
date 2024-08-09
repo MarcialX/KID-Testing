@@ -124,7 +124,7 @@ def tr(T, Tc, t0):
     tr = (t0/np.sqrt(np.pi))*(Kb*Tc/(2*Delta))**(5/2) * np.sqrt(Tc/T) * np.exp(Delta/Kb/T)
     return tr
 
-def spectra_noise_model(freqs, gr_level, tau_qp, tls_a, tls_b, amp_noise, Qr=20e3, f0=1e9):
+def spectra_noise_model(freqs, gr_level, tau_qp, tls_a, tls_b, amp_noise=0, Qr=20e3, f0=1e9):
     """
     Spectra noise model.
     Parameters
@@ -145,15 +145,21 @@ def spectra_noise_model(freqs, gr_level, tau_qp, tls_a, tls_b, amp_noise, Qr=20e
         Amplifier noise.
     ----------
     """
+
+    """
     # Generation-Recombination noise
     gr = gr_noise(freqs, gr_level, tau_qp, Qr, f0)
     # TLS noise
     tls = tls_noise(freqs, tls_a, tls_b, tau_qp, Qr, f0)
     # Amplifier noise
-    amp = amp_noise / (1.+(2*np.pi*freqs*Qr/np.pi/f0)**2)
+    amp = amp_noise
+    """
 
+    relax = relaxation(freqs, tau_qp, Qr, f0)
+    Sxx = amp_noise + (gr_level*np.ones_like(freqs) + (tls_a*freqs**(tls_b))) * relax
+    
     # Total noise
-    return gr + tls + amp
+    return Sxx
 
 def gr_noise(freqs, gr_level, tau_qp, Qr, f0):
     """
@@ -173,7 +179,9 @@ def gr_noise(freqs, gr_level, tau_qp, Qr, f0):
     -----------
     """
 
-    return gr_level / (1.+(2*np.pi*freqs*tau_qp)**2) / (1.+(2*np.pi*freqs*Qr/np.pi/f0)**2)
+    #return gr_level / (1.+(2*np.pi*freqs*tau_qp)**2) / (1.+(2*np.pi*freqs*Qr/np.pi/f0)**2)
+    relax = relaxation(freqs, tau_qp, Qr, f0)
+    return gr_level * relax
 
 def tls_noise(freqs, tls_a, tls_b, tau_qp, Qr, f0):
     """
@@ -192,7 +200,14 @@ def tls_noise(freqs, tls_a, tls_b, tau_qp, Qr, f0):
     """
 
     #return (tls_a*freqs**(tls_b)) / (1.+(2*np.pi*freqs*Qr/np.pi/f0)**2)
-    return (tls_a*freqs**(tls_b)) / (1.+(2*np.pi*freqs*tau_qp)**2) / (1.+(2*np.pi*freqs*Qr/np.pi/f0)**2)
+    #return (tls_a*freqs**(tls_b)) / (1.+(2*np.pi*freqs*tau_qp)**2) / (1.+(2*np.pi*freqs*Qr/np.pi/f0)**2)
+    relax = relaxation(freqs, tau_qp, Qr, f0)
+    return (tls_a*freqs**(tls_b)) * relax
+
+def relaxation(freqs, tau_qp, Qr, f0):
+
+    relax_factor = 1 / (1.+(2*np.pi*freqs*tau_qp)**2) / (1.+(2*np.pi*freqs*Qr/np.pi/f0)**2)
+    return relax_factor
 
 def f0_vs_pwr_model(P, a, b):
     """

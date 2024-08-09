@@ -76,7 +76,7 @@ from datetime import datetime
 TEMP_TYPE = {'mK':'D',  'K':'B'}
 BACKUP_FILE = "proj_bkp"
 
-lstyle = ['-', '-', '--', 'dotted', '.-']
+lstyle = ['-', '--', 'dotted', '.-']
 lmarker = ['s', '^', 'o', '*']
 
 class Homodyne:
@@ -1132,6 +1132,7 @@ class Homodyne:
         pwrs = np.zeros((tot_kids, tot_temps))
         
         if plot_res:
+            lstyle_pointer = -1
             fig, ax = subplots(1,1, figsize=(15,9))
             subplots_adjust(left=0.110, right=0.99, top=0.97, bottom=0.07, hspace=0.0, wspace=0.0)
 
@@ -1268,7 +1269,7 @@ class Homodyne:
             """
 
             if plot_res:
-                lstyle_pointer = 0
+                #lstyle_pointer = 0
                 if k%10 == 0:
                     lstyle_pointer += 1
                 if var == 'fr':
@@ -1284,7 +1285,7 @@ class Homodyne:
                         mk = custom[1][k]
                         lsty = custom[2][k]
                         ax.plot(power, 1e6*xs_plot, label=kid, linestyle=lsty, marker=mk, color=color)
-                    else:
+                    else:                      
                         ax.plot(power, 1e6*xs_plot, label=kid, linestyle=lstyle[lstyle_pointer], marker=lmarker[lstyle_pointer])
 
                     if temp_conv == 'power':
@@ -1323,7 +1324,7 @@ class Homodyne:
         # Frequency width
         df = kwargs.pop('df', 0.5)
         # ----------------------------------------------
-        
+
         NEPs = np.zeros((2, len(fixed_freqs)), dtype=float)
         kids = self._get_kids_to_sweep(kid, mode='ts')
 
@@ -1358,7 +1359,7 @@ class Homodyne:
                 Qr = self.data['vna'][kid][tmp][att]['fit']['Qr']  
 
                 NEP, NEP_ncorr = self.get_NEP(f_clean, psd_clean, tqp, S[k][t], Qr, f0)
-                
+
                 # Get NEP from binning data
                 NEP_bin, NEP_bin_ncorr = self.get_NEP(f_clean_bin, psd_clean_bin, tqp, S[k][t], Qr, f0)
 
@@ -1443,7 +1444,7 @@ class Homodyne:
         if self.data_type.lower() == 'dark':
             self.Delta = get_Delta(Tcs[self.material])
             NEP = np.sqrt(psd) * (( (eta*tqp/self.Delta)*(np.abs(S)) )**(-1)) * np.sqrt(1 + (2*np.pi*f*tqp)**2 ) * np.sqrt(1 + (2*np.pi*f*Qr/np.pi/f0)**2)
-            NEP_no_corr = None
+            NEP_no_corr = np.sqrt(psd) * (( (eta*tqp/self.Delta)*(np.abs(S)) )**(-1))
 
         elif self.data_type.lower() == 'blackbody':
             NEP = np.sqrt(psd) * ( (np.abs(S))**(-1)) * np.sqrt(1 + (2*np.pi*f*tqp)**2 ) * np.sqrt(1 + (2*np.pi*f*Qr/np.pi/f0)**2)

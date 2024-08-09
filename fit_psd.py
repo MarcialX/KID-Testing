@@ -60,7 +60,7 @@ class fit_psd(object):
         self.smooth_params = kwargs.pop('smooth_params', [21, 3])
         # ----------------------------------------------
 
-    def get_psd_fit(self, freq_psd, psd, f0_fits, Q, amp_noise):
+    def get_psd_fit(self, freq_psd, psd, f0_fits, Q):
         """
         Get PSD fit
         Parameters
@@ -83,11 +83,11 @@ class fit_psd(object):
 
         # Fit PSD curve
         gr_noise_s, amp_noise_s, tau_s, tls_a_s, tls_b_s, fit_PSD_s = self.fit_spectra_noise(freq_psd, n_freq, 
-                n_psd, f0_fits, Q, amp_noise)
+                n_psd, f0_fits, Q)
 
         return gr_noise_s, tau_s, amp_noise_s, tls_a_s, tls_b_s, fit_PSD_s, n_freq, n_psd
     
-    def guess_params(self, freq, psd, gr_lims=[20, 50], amp_lims=[7.5e4, 8.0e4]):
+    def guess_params(self, freq, psd, gr_lims=[20, 50], amp_lims=[7.0e4, 8.5e4]):
         """
         Guess parameters to fit PSD.
         Parameters
@@ -129,28 +129,41 @@ class fit_psd(object):
         tlsa_guess = psd[idx_one]
         tlsb_guess = -0.5
 
-        tlsa_min = gr_min
-        tlsa_max = np.max(psd)
-
-        tlsb_min = -1.5
-        tlsb_max = -0.01
+        tlsa_min = np.min(psd)
+        tlsa_max = np.inf #np.max(psd)
 
         """
+        tlsb_min = -1.5
+        tlsb_max = -0.01
+        """
+        tlsb_min = -2.55
+        tlsb_max = -0.01
+
         # A M P   N O I S E
         # -------------------------------------
+        """
         amp_idx_from = np.where(freq > amp_lims[0])[0][0]
         amp_idx_to = np.where(freq < amp_lims[1])[0][-1]
         amp_guess = np.nanmedian(psd[amp_idx_from:amp_idx_to])
+        amp_min = np.nanmin(psd[amp_idx_from:amp_idx_to])
+        amp_max = np.nanmax(psd[amp_idx_from:amp_idx_to])
         """
-        
+
         guess = np.array([gr_guess, tauqp_guess, tlsa_guess, tlsb_guess])
 
         bounds = np.array([ [gr_min, tauqp_min, tlsa_min, tlsb_min],
                             [gr_max, tauqp_max, tlsa_max, tlsb_max]])
+        
+        """
+        guess = np.array([gr_guess, tauqp_guess, tlsa_guess, tlsb_guess, amp_guess])
+
+        bounds = np.array([ [gr_min, tauqp_min, tlsa_min, tlsb_min, amp_min],
+                            [gr_max, tauqp_max, tlsa_max, tlsb_max, amp_max]])
+        """
 
         return guess, bounds
 
-    def fit_spectra_noise(self, ofreqs, bfreqs, psd, f0_fits, Q, amp_noise):
+    def fit_spectra_noise(self, ofreqs, bfreqs, psd, f0_fits, Q):
         """
         Perform the fitting on the PSD.
         Parameters
@@ -165,9 +178,9 @@ class fit_psd(object):
         """
 
         guess, bounds = self.guess_params(bfreqs, psd)
-
         sigma = (1 / abs(np.gradient(bfreqs)))
 
+        amp_noise = 0
         #tls_b = -0.5
         popt, pcov = curve_fit(lambda freqs, gr_level, tau_qp, tls_a, tls_b : spectra_noise_model(freqs,
                     gr_level, tau_qp, tls_a, tls_b, amp_noise, Q, f0_fits), bfreqs, psd, bounds=bounds, p0=guess, sigma=sigma)
@@ -209,7 +222,7 @@ class fit_psd(object):
         self._ax.set_xlabel(r'Frequency [Hz]', fontsize=18, weight='bold')
         self._ax.set_ylabel(r'PSD [Hz$^2$/Hz] ', fontsize=18, weight='bold')
 
-    def apply_psd_fit(self, freq_psd, psd, f0_fits, Q, amp_noise, inter=False):
+    def apply_psd_fit(self, freq_psd, psd, f0_fits, Q, inter=False):
         """
         Apply PSD fit.
         Parameters
@@ -239,7 +252,7 @@ class fit_psd(object):
         self.psd = psd
         # Apply fit
         gr_noise_s, tau_s, amp_noise_s, tls_a_s, tls_b_s, fit_PSD_s, down_f, \
-            down_psd = self.get_psd_fit(freq_psd, psd, f0_fits, Q, amp_noise)
+            down_psd = self.get_psd_fit(freq_psd, psd, f0_fits, Q)
 
         # B I N N I N G
         # ----------------------
@@ -350,7 +363,7 @@ class fit_psd(object):
                     self._psd = np.concatenate((self._psd[:x_sort[0]],self._psd[x_sort[1]:]))
                     # Fit new curve
                     gr_noise_s, tau_s, amp_noise_s, tls_a_s, tls_b_s, fit_PSD_s, down_f, down_psd = self.get_psd_fit(self._freq_psd, \
-                                                                self._psd, self.f0_fits, self.Q, self.amp_noise)
+                                                                self._psd, self.f0_fits, self.Q)
 
                     # S A V E   P A R A M S
                     # --------------------------

@@ -127,21 +127,16 @@ def fit_mix_psd(f, psd_mix, f0, Qr, trim_range=[0.2, 9e4], plot_name="", n_pts=5
     fm = f[np.where(f>trim_range[0])[0][0]:np.where(f>trim_range[1])[0][0]][psd_clean>0]
     fm = np.array(fm)
 
-    #amp_idx_from = np.where(fm>amp_range[0])[0][0]
-    #amp_idx_to = np.where(fm<amp_range[1])[0][-1]
-    #amp_noise = np.nanmedian(psd_trim[amp_idx_from:amp_idx_to])
-    amp_noise = 0
-
     try:
         print('I N I T   P A R A M S')
         print('---------------------')
         msg(f'Qr: {Qr:.0f}', 'info')
         msg(f'f0: {f0:.0f} Hz', 'info')
-        msg(f'amp [not used]: {amp_noise:.3f} [Hz^2/Hz]', 'info')
+        #msg(f'amp [not used]: {amp_noise:.3f} [Hz^2/Hz]', 'info')
 
         # P E R F O R M   T H E   F I T
         # -----------------------------
-        fit_psd_obj.apply_psd_fit(fm, psd_trim, f0, Qr, amp_noise, inter=True)
+        fit_psd_obj.apply_psd_fit(fm, psd_trim, f0, Qr, inter=True)
 
         ion()
 
@@ -152,13 +147,14 @@ def fit_mix_psd(f, psd_mix, f0, Qr, trim_range=[0.2, 9e4], plot_name="", n_pts=5
         fit_single_psd['tau'] = fit_psd_obj.tau
         fit_single_psd['tls_a'] = fit_psd_obj.tls_a
         fit_single_psd['tls_b'] = fit_psd_obj.tls_b
-        fit_single_psd['amp_noise'] = amp_noise
+        fit_single_psd['amp_noise'] = fit_psd_obj.amp_noise
 
         print('F I T   R E S U L T S')
         msg(f'tau: {fit_psd_obj.tau*1e6:.1f} us', 'info')
         msg(f'GR noise: {fit_psd_obj.gr_noise:.3f} Hz^2/Hz', 'info')
         msg(f'tls_b: {fit_psd_obj.tls_b:.3f}', 'info')
         msg(f'tls_a: {fit_psd_obj.tls_a:.3f}', 'info')
+        msg(f'amp_noise: {fit_psd_obj.amp_noise:.3f}', 'info')
 
         # Get the 1/f knee
         # Generation-Recombination noise
