@@ -1033,6 +1033,8 @@ class Homodyne:
         plot_fit = kwargs.pop('plot_fit', True)
         # Reduced number of points
         n_pts = kwargs.pop('n_pts', 500)
+        # Interactive mode
+        inter = kwargs.pop('inter', True)
         # Savgol smoothing values
         smooth_params = kwargs.pop('smooth_params', [21, 3])
         # ----------------------------------------------
@@ -1047,11 +1049,9 @@ class Homodyne:
                 attens = self._get_atten_to_sweep(atten, tmp, kid, mode='ts')
                 for att in attens:
                     self.get_psd_on_off(kid, tmp, att, ignore=ignore, fit=fit_psd, plot_fit=plot_fit, \
-                                        n_pts=n_pts, smooth_params=smooth_params)
+                                        n_pts=n_pts, inter=inter, smooth_params=smooth_params)
 
-    def get_responsivity(self, kid, temp_conv='Nqp', var='fr', sample=0, dims=[1,1,1],  \
-                        nu=35e9, flag_kid=[], custom=None, data_source='vna', diry_fts="", from_fit=False, \
-                        method='min', res_method="grad", pwr_method='bandwidth', nqp_fit_pts=-4, plot_res=True):
+    def get_responsivity(self, kid, **kwargs):
         """
         Get responsivity
         Parameters
@@ -1103,6 +1103,44 @@ class Homodyne:
         ----------
         """
 
+        # Key arguments
+        # ----------------------------------------------
+        # Convert temperature to a defined parameter.
+        temp_conv = kwargs.pop('temp_conv', 'Nqp')
+        # Parameter to evaluate the responsivity.
+        var = kwargs.pop('var', 'fr')
+        # Sample number.
+        sample = kwargs.pop('sample', 0)
+        # Detector dimensions.
+        dims = kwargs.pop('dims', [1,1,1])
+        # Bandwidth.
+        nu = kwargs.pop('nu', 35e9)
+        # List of detectors to flag.
+        flag_kid = kwargs.pop('flag_kid', [])
+        # Customise the plots.
+        custom = kwargs.pop('custom', None)
+        # Data source.
+        data_source = kwargs.pop('data_source', 'vna')
+        # Folder that contains the FTS measurements to convert BB data to power.
+        diry_fts = kwargs.pop('diry_fts', "")
+        # Parameter from fit.
+        from_fit = kwargs.pop('from_fit', False)
+        # Method to get the resonance frequency 'fr'.
+        method = kwargs.pop('method', 'min')
+        #  Method to get responsivity.
+        res_method = kwargs.pop('res_method', 'grad')
+        #  Method to get power.
+        pwr_method = kwargs.pop('pwr_method', 'bandwidth')
+        # Number of points to fit the Nqp counting from the end.
+        nqp_fit_pts = kwargs.pop('nqp_fit_pts', -4)
+        # Plot responsivity as var vs power/BB/Nqp
+        plot_res = kwargs.pop('plot_res', True)
+        # Smooth transmission?
+        smooth = kwargs.pop('smooth', False)
+        # Savgol smoothing values
+        smooth_params = kwargs.pop('smooth_params', [7, 3])
+        # ----------------------------------------------
+
         ioff()
 
         if from_fit == False and method == 'min':
@@ -1132,7 +1170,8 @@ class Homodyne:
         pwrs = np.zeros((tot_kids, tot_temps))
         
         if plot_res:
-            lstyle_pointer = -1
+            lstyle_pointer = 0
+
             fig, ax = subplots(1,1, figsize=(15,9))
             subplots_adjust(left=0.110, right=0.99, top=0.97, bottom=0.07, hspace=0.0, wspace=0.0)
 
@@ -1169,7 +1208,16 @@ class Homodyne:
                     else:
                         if method == 'min':
                             f, s21 = self.data['vna'][kid][tm][att]['data'][sample]
-                            x = f[np.argmin(20*np.log10(np.abs(s21)))]
+                            s21_mag = 20*np.log10(np.abs(s21))
+
+                            #figure(kid)
+                            #plot(f, s21_mag)
+
+                            if smooth:
+                                s21_mag = savgol_filter(s21_mag, *smooth_params)
+                                #plot(f, s21_mag)
+                                
+                            x = f[np.argmin(s21_mag)]
 
                     xs[t] = x
 
@@ -1192,7 +1240,7 @@ class Homodyne:
                         msg('Power[pW]: '+str(p*1e12), 'info')
                         power.append(p)
 
-                    if temp_conv == 'Nqp':
+                    elif temp_conv == 'Nqp':
                         Delta = get_Delta(Tcs[self.material])
                         self.Delta = Delta
 
@@ -1204,6 +1252,11 @@ class Homodyne:
                         msg('Volume [um³]: '+str(V), 'info')
                         msg('Energy gap: '+str(Delta), 'info')
                         msg('Nqp: '+str(Nqp), 'info')
+
+                    elif temp_conv == 'temp':
+
+                        msg('Temperature: '+str(temp_conv), 'info')
+                        power.append(rt)
 
                 power = np.array(power)
 
@@ -1245,6 +1298,10 @@ class Homodyne:
                     
                     S[k] = dF0_dNqp
 
+                elif temp_conv == 'temp':
+
+                    S[k] = xs
+
                 pwrs[k] = power
 
             except Exception as e:
@@ -1269,9 +1326,10 @@ class Homodyne:
             """
 
             if plot_res:
-                #lstyle_pointer = 0
-                if k%10 == 0:
+
+                if k%10 == 0 and k > 0:
                     lstyle_pointer += 1
+
                 if var == 'fr':
                     xs_plot = (xs - xs[0])/xs[0]
                     ax.set_ylabel('ffs [ppm]', fontsize=18, weight='bold')
@@ -1292,6 +1350,8 @@ class Homodyne:
                         ax.set_xlabel('Power [W]', fontsize=18, weight='bold')
                     elif temp_conv == 'Nqp':
                         ax.set_xlabel('Nqp', fontsize=18, weight='bold')
+                    elif temp_conv == 'temp':
+                        ax.set_xlabel('Temperature [K]', fontsize=18, weight='bold')
 
                     ax.legend(ncol=2)
 
@@ -1506,6 +1566,8 @@ class Homodyne:
         plot_fit = kwargs.pop('plot_fit', True)
         # Reduced number of points
         n_pts = kwargs.pop('n_pts', 500)
+        # Interactive mode
+        inter = kwargs.pop('inter', False)
         # Savgol smoothing values
         smooth_params = kwargs.pop('smooth_params', [21, 3])
         # ----------------------------------------------
@@ -1560,8 +1622,9 @@ class Homodyne:
             plot_name = kid + '-' + temp + '-' + atten
 
             fit_psd_params, k_knee = fit_mix_psd(f_on, psd_mix, f0, Qr, plot_name=plot_name, \
-                                                trim_range=[0.2, 7.5e4], n_pts=n_pts, smooth_params=smooth_params)
-
+                                                trim_range=[0.2, 7.5e4], n_pts=n_pts, inter=inter, \
+                                                smooth_params=smooth_params)
+            
             self.data['ts'][kid][temp][atten]['fit_psd'] = {}
             self.data['ts'][kid][temp][atten]['fit_psd']['params'] = fit_psd_params
             #self.data['ts'][kid][temp][atten]['fit_psd']['psd'] = [f_nep, psd_nep]
@@ -1590,8 +1653,6 @@ class Homodyne:
             ax.set_title('PSD-noise-'+name+'-'+str(base_temp)+' K')
             ax.set_xlabel('Frequency[Hz]')
             ax.set_ylabel(r'PSD [Hz$^2$/Hz]')
-
-            ax.legend()
 
             if fit:
                 fit_PSD = spectra_noise_model(f_clean, fit_psd_params['gr'], fit_psd_params['tau'], fit_psd_params['tls_a'],
@@ -2043,6 +2104,7 @@ class Homodyne:
                     atts_num = []
                     qi, qc, qr = [], [], []
                     qi_err, qc_err, qr_err = [], [], []
+
                     for att in attens:
                         try:
                             if float(att[1:]) >= self.overdriven[k2]:
@@ -2073,7 +2135,7 @@ class Homodyne:
                         except Exception as e:
                             print(att+' not available\n'+str(e))
 
-                    if k%10 == 0:
+                    if k%10 == 0 and k > 0:
                         lstyle_pointer += 1
 
                     if flag_color_loop:
@@ -2238,6 +2300,7 @@ class Homodyne:
             figs_Q.append(fig_Q_high)
             axs_Q.append(ax_Q_high)
 
+        fig_name = ""
         norm_color = matplotlib.colors.Normalize(vmin=0, vmax=len(kids))
         for k, kid in enumerate(kids):
             k2 = int(kid[1:])
@@ -2396,17 +2459,20 @@ class Homodyne:
                 except Exception as e:
                     msg(kid+'-'+tmp+'-'+att+'-'+str(e), 'warn')
 
+            fig_name += kid+'-'
+
         # Save figures
-        fig_I_low.savefig(self.work_dir+self.project_name+'/fit_psd_results/I_low-ts.png')
+        fig_name = fig_name[:-1]
+        fig_I_low.savefig(self.work_dir+self.project_name+'/fit_psd_results/I_low-ts-'+fig_name+'.png')
         close(fig_I_low)
-        fig_Q_low.savefig(self.work_dir+self.project_name+'/fit_psd_results/Q_low-ts.png')
+        fig_Q_low.savefig(self.work_dir+self.project_name+'/fit_psd_results/Q_low-ts-'+fig_name+'.png')
         close(fig_Q_low)
 
         # Save figures
         for c in range(len(figs_I)):
-            figs_I[c].savefig(self.work_dir+self.project_name+'/fit_psd_results/I_high-ts-'+str(c)+'.png')
+            figs_I[c].savefig(self.work_dir+self.project_name+'/fit_psd_results/I_high-ts-'+fig_name+'-'+str(c)+'.png')
             close(figs_I[c])
-            figs_Q[c].savefig(self.work_dir+self.project_name+'/fit_psd_results/Q_high-ts-'+str(c)+'.png')
+            figs_Q[c].savefig(self.work_dir+self.project_name+'/fit_psd_results/Q_high-ts-'+fig_name+'-'+str(c)+'.png')
             close(figs_Q[c])
 
     def plot_all_s21_kids(self, kid, temp, atten, sample=0, over_attens=True, data_source='vna', cmap='jet', fig_name=None):
@@ -2441,7 +2507,6 @@ class Homodyne:
 
         fig, axm = subplots(xg, yg, figsize=(20,12))
         subplots_adjust(left=0.05, right=0.99, top=0.99, bottom=0.08, hspace=0.15)#, wspace=0.035)
-
         for k in range(xg*yg):
 
             i = k%yg

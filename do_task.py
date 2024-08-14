@@ -300,6 +300,8 @@ for s, step in enumerate(TASKS):
                 the_args['plot_fit'] = task_params['plot_fit']
             elif p == 'n_pts':
                 the_args['n_pts'] = task_params['n_pts']
+            elif p == 'inter':
+                the_args['inter'] = task_params['inter']
             elif p == 'smooth_params':
                 the_args['smooth_params'] = task_params['smooth_params']
 
@@ -337,6 +339,10 @@ for s, step in enumerate(TASKS):
                 the_args['method'] = task_params['method']
             elif p == 'pwr_method':
                 the_args['pwr_method'] = task_params['pwr_method']
+            elif p == 'smooth':
+                the_args['smooth'] = task_params['smooth']
+            elif p == 'smooth_params':
+                the_args['smooth_params'] = task_params['smooth_params']
 
         h.get_responsivity(kids, **the_args)
 

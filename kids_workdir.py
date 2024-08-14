@@ -38,7 +38,10 @@ parser.add_argument('--template', '-t', help="Load a defined template", type=str
 
 args = parser.parse_args()
 
-path = args.path 
+path = args.path
+if path[-1] != '/':
+    path += '/'
+
 name = args.name
 dest = args.dest
 template = args.template

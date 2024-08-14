@@ -94,7 +94,7 @@ def get_psd(df, fs, method='mean'):
 
     return freqs[2:], total_psd[2:]
 
-def fit_mix_psd(f, psd_mix, f0, Qr, trim_range=[0.2, 9e4], plot_name="", n_pts=500, smooth_params=[21, 3]):
+def fit_mix_psd(f, psd_mix, f0, Qr, trim_range=[0.2, 9e4], plot_name="", n_pts=500, inter=True, smooth_params=[21, 3]):
     """
     Get the pixed PSD.
     Parameters
@@ -119,8 +119,6 @@ def fit_mix_psd(f, psd_mix, f0, Qr, trim_range=[0.2, 9e4], plot_name="", n_pts=5
     # Create fit object
     fit_psd_obj = fit_psd(plot_name=plot_name, n_pts=n_pts, smooth_params=smooth_params)
 
-    ioff()
-
     psd_clean = psd_mix[np.where(f>trim_range[0])[0][0]:np.where(f>trim_range[1])[0][0]]
     psd_trim = psd_clean[psd_clean>0]
 
@@ -136,8 +134,8 @@ def fit_mix_psd(f, psd_mix, f0, Qr, trim_range=[0.2, 9e4], plot_name="", n_pts=5
 
         # P E R F O R M   T H E   F I T
         # -----------------------------
-        fit_psd_obj.apply_psd_fit(fm, psd_trim, f0, Qr, inter=True)
-
+        ioff()
+        fit_psd_obj.apply_psd_fit(fm, psd_trim, f0, Qr, inter=inter)
         ion()
 
         # F I T    R E S U L T S

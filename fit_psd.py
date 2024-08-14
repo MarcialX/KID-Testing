@@ -217,7 +217,7 @@ class fit_psd(object):
         self._ax.semilogx(n_freq, 10*np.log10(n_psd), 'r.-', lw=1)
         # Plot fitted data
         self._ax.semilogx(freq_psd, 10*np.log10(psd_fit), 'k')
-
+        
         self._ax.set_title(self.plot_name)
         self._ax.set_xlabel(r'Frequency [Hz]', fontsize=18, weight='bold')
         self._ax.set_ylabel(r'PSD [Hz$^2$/Hz] ', fontsize=18, weight='bold')

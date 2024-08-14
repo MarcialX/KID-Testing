@@ -59,17 +59,19 @@ def nep_gr(Nqp, tqp, Tc, eta=0.6):
     NEP_gr = (2*Delta/eta)*np.sqrt(Nqp/tqp)
     return NEP_gr
 
-def nep_rec(P):
+def nep_rec(f0, P):
     """
     Optical Recombination noise.
     Parameters
     ----------
+    f0 : float
+        Central frequency.
     P : float
         Optical power.
     ----------
     """
 
-    NEP_rec = np.sqrt(2*P*h*nu)
+    NEP_rec = np.sqrt(2*h*f0*P)
     return NEP_rec
 
 def nep_shot(f0, P, eta=0.6):
@@ -89,7 +91,7 @@ def nep_shot(f0, P, eta=0.6):
     NEP_shot = np.sqrt(2*h*f0*P/eta)
     return NEP_shot
 
-def nep_wave(dnu, P):
+def nep_wave(dnu, P, n_pols=1):
     """
     NEP wave noise.
     Parameters
@@ -98,11 +100,30 @@ def nep_wave(dnu, P):
         Bandwidth.
     P : float
         Power
+    n_pols : int
+        Number of polarizations.
     ----------
     """
 
-    NEP_wave = np.sqrt(2*P**2/dnu)
+    NEP_wave = np.sqrt(2*P**2/dnu/n_pols)
     return NEP_wave
+
+def nep_photon(P, eta, dnu, f0, n_pols=1):
+    """
+    NEP photon noise.
+    Parameters
+    ----------
+    P : float
+        Power
+    dnu : float
+        Bandwidth.
+    f0 : float
+        Central frequency
+    ----------
+    """
+
+    total_nep = np.sqrt( nep_shot(f0, P, eta=eta)**2 + nep_wave(dnu, P, n_pols=n_pols)**2 )
+    return total_nep
 
 def tr(T, Tc, t0):
     """
@@ -384,6 +405,23 @@ def load_tx(diry, kid, freq_upper_limit=350):
 
     return f_sel, tx_sel
 
+def AOmega(f0, modes=1):
+    """
+    Get throughput AOmega.
+    Parameters
+    ----------
+    f0 : float
+        Central frequency.
+    modes : int
+        Number of polarizations.
+        1 : for linear polarization-sensitive detectors
+    ----------
+    """
+
+    # Assuming beam filled.
+    AO = modes*((c/f0)**2)/2
+    return AO
+
 def get_power_from_FTS(diry, kid, T, n_pols=2):
     """
     Get the power from the FTS.
@@ -410,7 +448,7 @@ def get_power_from_FTS(diry, kid, T, n_pols=2):
     print(f'F0: {f0:.2f} GHz')
 
     # A*Omega assuming beam fill.
-    Ao = ((c/f0)**2)/n_pols
+    AO = AOmega(f0, modes=1)
 
     """
     figure()
@@ -419,9 +457,9 @@ def get_power_from_FTS(diry, kid, T, n_pols=2):
     print('Central freq: ', nu_max)
     show()
     """
-      
+
     # Get total power
-    P = integrate.trapezoid(spec, f_sel*1e9) * Ao
+    P = integrate.trapezoid(spec, f_sel*1e9) * AO
 
     return P
 

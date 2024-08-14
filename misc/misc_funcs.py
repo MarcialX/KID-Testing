@@ -89,3 +89,48 @@ def log_binning(freq_psd, psd, n_pts=500):
     n_psd = np.array(n_psd)
 
     return n_freq, n_psd
+
+
+
+def fit_bootstrap(p0, datax, datay, function, yerr_systematic=0.0):
+
+    errfunc = lambda p, x, y: function(x,p) - y
+
+    # Fit first time
+    pfit, perr = optimize.leastsq(errfunc, p0, args=(datax, datay), full_output=0)
+
+
+    # Get the stdev of the residuals
+    residuals = errfunc(pfit, datax, datay)
+    sigma_res = np.std(residuals)
+
+    sigma_err_total = np.sqrt(sigma_res**2 + yerr_systematic**2)
+
+    # 500 random data sets are generated and fitted
+    ps = []
+    for i in range(1000):
+
+        randomDelta = np.random.normal(0., sigma_err_total, len(datay))
+        randomdataY = datay + randomDelta
+
+        randomfit, randomcov = \
+            optimize.leastsq(errfunc, p0, args=(datax, randomdataY),\
+                             full_output=0)
+
+        ps.append(randomfit) 
+
+    ps = np.array(ps)
+    mean_pfit = np.mean(ps,0)
+
+    # You can choose the confidence interval that you want for your
+    # parameter estimates: 
+    Nsigma = 1. # 1sigma gets approximately the same as methods above
+                # 1sigma corresponds to 68.3% confidence interval
+                # 2sigma corresponds to 95.44% confidence interval
+    err_pfit = Nsigma * np.std(ps,0) 
+
+    pfit_bootstrap = mean_pfit
+    perr_bootstrap = err_pfit
+    
+    return pfit_bootstrap, perr_bootstrap 
+
