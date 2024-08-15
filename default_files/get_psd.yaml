@@ -17,7 +17,7 @@ TEMPS : "all"
 # Attenuations
 ATTS : "all"
 # Resonators
-KIDS : [1]
+KIDS : [0]
 # Number of repeats
 SAMPLES : "all"
 
@@ -40,7 +40,7 @@ TASKS :
     "params": {
       "ignore" : [[0,1], [0,1]],
       "win_size" : 400,
-      "sigma_thresh" : 2.8,
+      "sigma_thresh" : 3.0,
       "peak_pts" : 4,
       "plot_ts" : True
     }
@@ -48,6 +48,7 @@ TASKS :
     "name": "get_psd"
     "params": {
       "ignore" : [[0,1], [0,1]],
+      "inter" : True,
       "fit_psd" : True,
       "plot_fit" : True
     }

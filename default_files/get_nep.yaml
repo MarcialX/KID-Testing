@@ -13,7 +13,7 @@ SAVE_PROJ : False
 # D A T A   S E L E C T I O N
 # ---------------------------------------------------
 # Temperatures: Base temperature or Blackbody.
-TEMPS : ["B010", "B015", "B020", "B025", "B030", "B040", "B050", "B060", "B070"]
+TEMPS : "all"
 # Attenuations
 ATTS : "all"
 # Resonators
@@ -43,7 +43,7 @@ TASKS :
   "4" :
     "name": "NEP"
     "params": {
-      "fixed_temp" : "B010",
+      "fixed_temp" : "B000",
       "df" : 1.0
     }
 

@@ -43,7 +43,7 @@ TASKS :
       "dims" : [45e-3, 2, 2482],
       "from_fit" : True,
       "plot_res" : True,
-      "flag_kid" : ['K007'],
+      "flag_kid" : [],
       "data_source" : 'vna'
     }
 
