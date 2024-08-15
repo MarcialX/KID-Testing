@@ -1410,16 +1410,17 @@ class Homodyne:
         pwrs = np.load(self.work_dir+self.project_name+'/fit_res_dict/responsivity/responsivity-powers-'+self.data_type+'.npy')
 
         ioff()
-        fig_nep_kids, ax_nep_kids = subplots(1, 1, figsize=(20,12))
-        subplots_adjust(left=0.110, right=0.99, top=0.97, bottom=0.07, hspace=0.0, wspace=0.0)
+        #fig_nep_kids, ax_nep_kids = subplots(1, 1, figsize=(20,12))
+        #subplots_adjust(left=0.110, right=0.99, top=0.97, bottom=0.07, hspace=0.0, wspace=0.0)
 
         for kid in kids:
             k = int(kid[1:])
             msg(kid, 'info')
 
-            fig_kid, ax_kid = subplots(1, 1, figsize=(20,12))
-            fig_neps, ax_neps = subplots(1, 1, figsize=(9,6))
-            subplots_adjust(left=0.110, right=0.99, top=0.97, bottom=0.07, hspace=0.0, wspace=0.0)
+            fig_kid, ax_kid = subplots(1, 1, figsize=(21,6))
+            subplots_adjust(left=0.060, right=0.98, top=0.95, bottom=0.110, hspace=0.2, wspace=0.2)
+            fig_neps, ax_neps = subplots(1, 1, figsize=(8,8))
+            subplots_adjust(left=0.110, right=0.98, top=0.95, bottom=0.110, hspace=0.0, wspace=0.0)
             temps = self._get_temps_to_sweep(temp, kid, mode='ts')
             for t, tmp in enumerate(temps):
                 
@@ -1432,8 +1433,16 @@ class Homodyne:
                 tqp = psd_params['tau']
 
                 # Resonator params
-                f0 = self.data['vna'][kid][tmp][att]['fit']['fr']
-                Qr = self.data['vna'][kid][tmp][att]['fit']['Qr']  
+                if 'fit' in self.data['vna'][kid][tmp][att]:
+                    f0 = self.data['vna'][kid][tmp][att]['fit']['fr']
+                    Qr = self.data['vna'][kid][tmp][att]['fit']['Qr'] 
+                else:
+                    msg('Fit for f0 and Qr are not available.\n \
+                        f0 selected as the minimum of S21 magnitude.\n \
+                        Qr defined as zero, i.e. ring-down time will not be considered.', 'warn')
+                    fd, s21_d = self.data['vna'][kid][tmp][att]['data'][0]
+                    f0 = fd[np.nanargmin(s21_d)]
+                    Qr = 0
 
                 NEP, NEP_ncorr = self.get_NEP(f_clean, psd_clean, tqp, S[k][t], Qr, f0)
 
@@ -1480,17 +1489,20 @@ class Homodyne:
             ax_neps.grid(True, which="both", ls="-")
             ax_neps.legend()
 
+            """
             try:
                 ax_nep_kids.loglog(temp_freq, temp_NEP, label=kid)
                 ax_nep_kids.set_xlabel('Frequency [MHz]')
                 ax_nep_kids.set_ylabel('NEP [W/sqrt(Hz)]')
             except:
                 pass
-
+            """
+                
         np.save(self.work_dir+self.project_name+'/fit_res_dict/nep/nep_freqs', fixed_freqs)
 
-        ax_nep_kids.grid(True, which="both", ls="-")
-        ax_nep_kids.legend()
+        #ax_nep_kids.grid(True, which="both", ls="-")
+        #ax_nep_kids.legend()
+        
         show()
 
     def get_NEP(self, f, psd, tqp, S, Qr, f0, **kwargs):

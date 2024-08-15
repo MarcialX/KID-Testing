@@ -90,8 +90,6 @@ def log_binning(freq_psd, psd, n_pts=500):
 
     return n_freq, n_psd
 
-
-
 def fit_bootstrap(p0, datax, datay, function, yerr_systematic=0.0):
 
     errfunc = lambda p, x, y: function(x,p) - y

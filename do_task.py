@@ -393,7 +393,7 @@ for s, step in enumerate(TASKS):
         try:
             msg('Generating the responsivity...', 'ok')
             h.get_responsivity(kids, **the_args)
-            msg('Done')
+            msg('Done', 'ok')
         except Exception as e:
             msg('Error calculating the responsivity.\n'+str(e), 'fail')
 
@@ -410,12 +410,12 @@ for s, step in enumerate(TASKS):
             elif p == 'df':
                 the_args['df'] = task_params['df']      
 
-        try:
-            msg('Calculating the NEP...', 'ok')
-            h.get_all_NEP(kids, temps, **the_args)
-            msg('Done', 'ok')
-        except Exception as e:
-            msg('Error getting the NEP for the defined KIDs.\n'+str(e), 'fail')
+        #try:
+        msg('Calculating the NEP...', 'ok')
+        h.get_all_NEP(kids, temps, **the_args)
+        msg('Done', 'ok')
+        #except Exception as e:
+        #    msg('Error getting the NEP for the defined KIDs.\n'+str(e), 'fail')
 
     # --> Saving project
     elif task_name == "save_proj":
