@@ -169,6 +169,8 @@ class Homodyne:
         self.material = material
         self.Delta = 1
 
+        self.od_cols = 5
+
         msg('Done', 'ok')
 
     def load_data(self, path, w=0.25, only_vna=False, expected=None):
@@ -638,9 +640,15 @@ class Homodyne:
         fig_cnt = -1
         tot_cnt = 0
         self.n_fig_od = 0
+
+        text_color = 'white'
+        box_color = 'purple'
+
         for k, kid in enumerate(kids):
             # Select all the attenuations
             tmp = self._get_temps_to_sweep(temp, kid)[0]
+
+            catt = 0
             attens = self._get_atten_to_sweep(None, tmp, kid)
             kid_non = np.zeros_like(attens, dtype=float)
             for a, att in enumerate(attens):
@@ -648,23 +656,29 @@ class Homodyne:
                     # Check the non-linearity
                     kid_non[a] = self.data['vna'][kid][tmp][att]['fit'][sample]['non']
                 except:
-                    pass
+                    catt += 1
 
-            idx = len(kid_non) - np.where(kid_non[::-1]>thresh)[0]
-            if len(idx) > 0:
-                idx = idx[0]
+            if catt < len(attens):
+                idx = len(kid_non) - np.where(kid_non[::-1]>thresh)[0]
+                if len(idx) > 0:
+                    idx = idx[0]
+                else:
+                    idx = 0
+                text_size = 14
             else:
-                idx = 0
+                idx = int(len(attens)/2)
+                self.od_cols = len(attens)
+                text_size = 9
 
             if k%6 == 0:
                 if fig_cnt >= 0:
                     self._create_od_fig(fig, ax)
 
-                fig, ax = subplots(6, 5)
+                fig, ax = subplots(6, self.od_cols)
                 subplots_adjust(left=0.07, right=0.99, top=0.94, bottom=0.07, hspace=0.0, wspace=0.0)
-                
-                self.over_atts_mtx = np.zeros((6,5))
-                self.over_atts_mask = np.zeros((6,5), dtype=bool)
+                            
+                self.over_atts_mtx = np.zeros((6, self.od_cols))
+                self.over_atts_mask = np.zeros((6, self.od_cols), dtype=bool)
 
                 fig_cnt += 1
                 self.n_fig_od = fig_cnt
@@ -672,17 +686,19 @@ class Homodyne:
 
             # Assign overdriven attenuations
             self.temp_att[k] = float(attens[idx][1:])
-            
-            for i in np.arange(5):
-                idx_map = i + idx - 2
 
-                ii = cnt%5
-                jj = int(cnt/5)
+            for i in np.arange(self.od_cols):
+                idx_map = i + idx - int(self.od_cols/2)
+
+                ii = cnt%self.od_cols
+                jj = int(cnt/self.od_cols)
 
                 if idx_map >= 0 and idx_map<len(attens):
                     f, s21 = self.data['vna'][kid][tmp][attens[idx_map]]['data'][sample]
-                    ax[jj,ii].plot(s21.real, s21.imag, 'ro-')
-                    
+                    ax[jj,ii].plot(s21.real, s21.imag, 'r.-')
+                    ax[jj,ii].tick_params(axis='x', labelsize=text_size)
+                    ax[jj,ii].tick_params(axis='y', labelsize=text_size)
+
                     try:
                         f_fit = self.data['vna'][kid][tmp][attens[idx_map]]['fit'][sample]['freq_data']
                         fit_s21 = self.data['vna'][kid][tmp][attens[idx_map]]['fit'][sample]['fit_data']
@@ -692,27 +708,23 @@ class Homodyne:
 
                     ax[jj,ii].axis('equal')
 
-                    if i == 2:
+                    if i == int(self.od_cols/2):
                         ax[jj,ii].patch.set_facecolor('green')
                     else:
                         ax[jj,ii].patch.set_facecolor('blue')
 
                     ax[jj,ii].patch.set_alpha(0.2)
 
-                    text_size = 14
-                    text_color = 'white'
-                    box_color = 'purple'
-
-                    ax[jj,ii].text(0.2, 0.2, attens[idx_map] + ' dB', \
+                    ax[jj,ii].text(0.2, 0.1, attens[idx_map] + ' dB', \
                                     {'fontsize': text_size, 'color':text_color}, \
                                     bbox=dict(facecolor=box_color, alpha=0.95), \
                                     transform=ax[jj,ii].transAxes)
                     self.over_atts_mtx[jj,ii] = float(attens[idx_map][1:])
                     self.over_atts_mask[jj,ii] = True
 
-                if jj == 5 or tot_cnt == len(kids)-1:
+                if jj == self.od_cols or tot_cnt == len(kids)-1:
                     ax[jj,ii].set_xlabel("I [V]")
-                if cnt%5 == 0:
+                if cnt%self.od_cols == 0:
                     ax[jj,ii].set_ylabel(kid+"\nQ [V]")
 
                 cnt += 1
@@ -737,7 +749,7 @@ class Homodyne:
         Subplot click event.
         """
         for i in range(6):
-            for j in range(5):
+            for j in range(self.od_cols):
                 if event.inaxes == self.ax_od[i, j]:
                     if self.over_atts_mask[i, j]:
                         self.update_overdriven_plot(i, j)
@@ -747,7 +759,7 @@ class Homodyne:
         """
         Update overdriven plot.
         """
-        for m in range(5):
+        for m in range(self.od_cols):
             if self.over_atts_mask[i, m]:
                 if m == j:
                     self.ax_od[i, m].patch.set_facecolor('green')
