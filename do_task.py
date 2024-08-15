@@ -1,3 +1,4 @@
+#! /home/marcial/.venv/bin/python3
 # -*- coding: utf-8 -*-
 # --------------------------------------------------------------------------------- #
 # Interpreter to run KID-Testing analysis tasks
@@ -30,6 +31,7 @@ from misc.msg_custom import *
 PARAMS_FILE = "params.yaml"
 BACKUP_FILE = "proj_bkp"
 
+root_diry = "/home/marcial/Documents/KID-Testing/"
 
 # R E A D   A R G U M E N T S
 # --------------------------------------------------

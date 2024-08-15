@@ -183,10 +183,15 @@ class Homodyne:
             frequency range.
         ----------
         """
+
         # Get the directories
         directories = next(walk(path), (None, None, []))[1]
 
-        if len(directories) == 0:
+        if directories is None:
+            print ('Directory doesn0t exist')
+            return -1
+
+        elif len(directories) == 0:
             print ('No directories found')
             return -1
 

@@ -1,3 +1,4 @@
+#! /home/marcial/.venv/bin/python3
 # -*- coding: utf-8 -*-
 # --------------------------------------------------------------------------------- #
 # Create a new working directory for a new experiment
@@ -46,11 +47,13 @@ name = args.name
 dest = args.dest
 template = args.template
 
+root_diry = "/home/marcial/Documents/KID-Testing/"
+
 # In case some of the arguments are not defined
 # - Destination folder
 if dest is None:
     dest = "/home/marcial/Documents/SOUK-devices"
-    print('Default destination directory: /home/marcial/Documents/SOUK-devices')
+    print('Default destination directory: '+dest)
 
 else: 
     folders = dest.split("/")
@@ -75,7 +78,7 @@ if not os.path.isdir(project_path):
 
 # Create the params.yaml
 # 'params.yaml' contains the general parameters for the experiment
-os.system('cp '+"./default_files/"+PARAMS_FILE+" "+project_path)
+os.system('cp '+root_diry+"default_files/"+PARAMS_FILE+" "+project_path)
 # Modify params.yaml file
 
 with open(project_path+'/'+PARAMS_FILE, 'r') as f:
@@ -98,7 +101,7 @@ with open(project_path+'/'+PARAMS_FILE, 'w') as wf:
 # Template
 if template is None:
     # Use all the default templates
-    templates = next(os.walk('./default_files/'), (None, None, []))[2]
+    templates = next(os.walk(root_diry+'default_files/'), (None, None, []))[2]
     for template in templates:
         if template != PARAMS_FILE:
-            os.system('cp '+"./default_files/"+template+" "+project_path)
+            os.system('cp '+root_diry+"default_files/"+template+" "+project_path)
