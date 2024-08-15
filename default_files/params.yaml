@@ -22,3 +22,4 @@ ATT_OVRDRN : []
 # D E T E C T O R   P R O P E R T I E S
 # -------------------------------------------
 MATERIAL : 'Al'
+DIMENSIONS : [45e-3, 2, 2482] 	# [um, um, um]

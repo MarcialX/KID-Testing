@@ -95,6 +95,10 @@ add_in_atten = gral_params['IN_ADD_ATT']
 add_out_atten = gral_params['OUT_ADD_ATT']
 
 MATERIAL = gral_params['MATERIAL']
+try:
+    DIMENSIONS = gral_params['DIMENSIONS']
+except:
+    DIMENSIONS = [1,1,1]
 
 # R U N   T A S K S
 # --------------------------------------------------
@@ -106,7 +110,7 @@ else:
 
 h = Homodyne(used_project, work_dir=project_path, proj_name=project_name, load_saved=LOAD_PROJ, 
             overdriven=atts_overdriven, add_in_atten=add_in_atten, add_out_atten=add_out_atten,
-            material=MATERIAL)
+            material=MATERIAL, dims=DIMENSIONS)
 
 TASKS = tasks_data['TASKS']
 

@@ -110,6 +110,8 @@ class Homodyne:
         add_out_att = kwargs.pop('add_out_att', 0)
         # Material
         material = kwargs.pop('material', 'Al')
+        # Absorber dimensions
+        dims = kwargs.pop('dims', [1,1,1])
         # ----------------------------------------------
 
         # Create a directory for the project
@@ -167,6 +169,7 @@ class Homodyne:
 
         # Material properties
         self.material = material
+        self.dims = dims
         self.Delta = 1
 
         self.od_cols = 5
@@ -1130,6 +1133,7 @@ class Homodyne:
         sample = kwargs.pop('sample', 0)
         # Detector dimensions.
         dims = kwargs.pop('dims', [1,1,1])
+        self.dims = dims
         # Bandwidth.
         nu = kwargs.pop('nu', 35e9)
         # List of detectors to flag.
@@ -1166,7 +1170,7 @@ class Homodyne:
                 return
 
         # Get total volume
-        V = float(dims[0])*float(dims[1])*float(dims[2]) 
+        V = float(self.dims[0])*float(self.dims[1])*float(self.dims[2]) 
         # Select the pre-overdriven attenuation.
         atten = self.overdriven
 
