@@ -167,26 +167,38 @@ for s, step in enumerate(TASKS):
 
         type_data = task_params['type']
 
-        h.load_fit(folder=path, data_type=type_data)     
+        try:
+            h.load_fit(folder=path, data_type=type_data)     
+        except Exception as e:
+            msg('S21 fit data do not loaded.\n'+str(e), 'fail')
 
-    # ---> Load fit
+    # ---> Load PSD fit
     elif task_name == "load_psd":
 
         path = task_params['path']
         if path == "":
             path = project_path+'/'+project_name
 
-        h.load_psd(folder=path)     
+        try:
+            h.load_psd(folder=path)
+        except Exception as e:
+            msg('PSD fit data do not loaded.\n'+str(e), 'fail')
 
     # ---> Merge sample results
     elif task_name == "merge_vna":
 
         xls_report = task_params['xls_report']
 
-        h.merge_fit_res(kids, temps, atts, samples)
+        try:
+            h.merge_fit_res(kids, temps, atts, samples)
+        except:
+            msg('Merge was not possible.', 'fail')
 
         if xls_report:
-            h.vna_xls_report()
+            try:
+                h.vna_xls_report()
+            except Exception as e:
+                msg('No possible to build the report.\n'+str(e), 'fail')
 
     # ---> Get overdriven attenuations
     elif task_name == "find_overdriven":
@@ -195,23 +207,25 @@ for s, step in enumerate(TASKS):
         ref_sample = task_params['sample']
         non_thresh = task_params['thresh']
 
-        h.find_overdriven_atts(ref_temp, sample=ref_sample, thresh=non_thresh)
+        try:
+            h.find_overdriven_atts(ref_temp, sample=ref_sample, thresh=non_thresh)
 
-        # Save atts in params.yaml file
-        with open(project_path+project_name+'/'+PARAMS_FILE, 'r') as f:
-            lines = f.readlines()
-            updated_lines = []
-            str_atts = ','.join(str(x) for x in h.overdriven)
-            for line in lines:
-                if "ATT_OVRDRN" in line:
-                    line = line[:line.index(":") + 1] + ' [' + str_atts + ']\n'
-            
-                updated_lines.append(line)
+            # Save atts in params.yaml file
+            with open(project_path+project_name+'/'+PARAMS_FILE, 'r') as f:
+                lines = f.readlines()
+                updated_lines = []
+                str_atts = ','.join(str(x) for x in h.overdriven)
+                for line in lines:
+                    if "ATT_OVRDRN" in line:
+                        line = line[:line.index(":") + 1] + ' [' + str_atts + ']\n'
+                    updated_lines.append(line)
 
-        with open(project_path+project_name+'/'+PARAMS_FILE, 'w') as wf:
-            for line in updated_lines:
-                wf.write(line)
+            with open(project_path+project_name+'/'+PARAMS_FILE, 'w') as wf:
+                for line in updated_lines:
+                    wf.write(line)
 
+        except Exception as e:
+            msg('Error looking for overdriven attenuations.\n'+str(e), 'fail')
 
     # ---> Summary plots pt. 1
     elif task_name == "summary_plots_1":
@@ -229,7 +243,12 @@ for s, step in enumerate(TASKS):
                     elif p == 'ignore':
                         the_args['ignore'] = plot_params['ignore']
 
-                h.plot_qs_vs_drive_power(kids, temps, atts, **the_args)
+                try:
+                    msg('Generating Qs vs drive power plots...', 'ok')
+                    h.plot_qs_vs_drive_power(kids, temps, atts, **the_args)
+                    msg('Done', 'ok')
+                except Exception as e:
+                    msg('Error building qs vs drive power plot.\n'+str(e), 'fail')
 
             elif name == 's21':
                 # Plot all the S21 for all the KIDs
@@ -245,7 +264,12 @@ for s, step in enumerate(TASKS):
                     elif p == 'over_attens':
                         the_args['over_attens'] = plot_params['over_attens']   
 
-                h.plot_all_s21_kids(kids, temps, atts, **the_args)
+                try:
+                    msg('Generating S21 plots...', 'ok')
+                    h.plot_all_s21_kids(kids, temps, atts, **the_args)
+                    msg('Done', 'ok')
+                except Exception as e:
+                    msg('Error building S21 plot.\n'+str(e), 'fail')
 
             elif name == 's21_per_kid':
                 # Plot all the S21 for all the KIDs
@@ -257,7 +281,12 @@ for s, step in enumerate(TASKS):
                     elif p == 'data_source':
                         the_args['data_source'] = plot_params['data_source']
 
-                h.plot_s21_kid(kids, temps, atts, **the_args)
+                try:
+                    msg('Generating S21 per KID plots...', 'ok')
+                    h.plot_s21_kid(kids, temps, atts, **the_args)
+                    msg('Done', 'ok')
+                except Exception as e:
+                    msg('Error building S21 per KID plots.\n'+str(e), 'fail')
 
     # ---> Apply despinking 
     elif task_name == "despike":
@@ -283,10 +312,20 @@ for s, step in enumerate(TASKS):
             elif p == 'cmap':
                 plot_args['cmap'] = task_params['cmap']
 
-        h.despike(kids, temps, atts, **the_args)
+        try:
+            msg('Applying despiking...', 'ok')
+            h.despike(kids, temps, atts, **the_args)
+            msg('Done', 'ok')
+        except:
+            msg('Error despiking timestreams', 'fail')
 
         if flag_plot_ts:
-            h.plot_ts_summary(kids, temps, **plot_args)
+            try:
+                msg('Generating timestream plots...', 'ok')
+                h.plot_ts_summary(kids, temps, **plot_args)
+                msg('Done', 'ok')
+            except Exception as e:
+                msg('Error building ts plots.\n'+str(e), 'fail')
 
     # ---> Get the PSDs
     elif task_name == "get_psd":
@@ -307,7 +346,12 @@ for s, step in enumerate(TASKS):
             elif p == 'smooth_params':
                 the_args['smooth_params'] = task_params['smooth_params']
 
-        h.get_all_psd(kids, temps, atts, **the_args)
+        try:
+            msg('Generating PSDs...', 'ok')
+            h.get_all_psd(kids, temps, atts, **the_args)
+            msg('Done', 'ok')
+        except Exception as e:
+            msg('Error getting the PSD for defined KIDs.\n'+str(e), 'fail')
 
     # ---> Get responsivity
     elif task_name == "responsivity":
@@ -346,7 +390,12 @@ for s, step in enumerate(TASKS):
             elif p == 'smooth_params':
                 the_args['smooth_params'] = task_params['smooth_params']
 
-        h.get_responsivity(kids, **the_args)
+        try:
+            msg('Generating the responsivity...', 'ok')
+            h.get_responsivity(kids, **the_args)
+            msg('Done')
+        except Exception as e:
+            msg('Error calculating the responsivity.\n'+str(e), 'fail')
 
     # ---> Get NEP
     elif task_name == "NEP":
@@ -361,13 +410,28 @@ for s, step in enumerate(TASKS):
             elif p == 'df':
                 the_args['df'] = task_params['df']      
 
-        h.get_all_NEP(kids, temps, **the_args)
+        try:
+            msg('Calculating the NEP...', 'ok')
+            h.get_all_NEP(kids, temps, **the_args)
+            msg('Done', 'ok')
+        except Exception as e:
+            msg('Error getting the NEP for the defined KIDs.\n'+str(e), 'fail')
 
     # --> Saving project
     elif task_name == "save_proj":
-
-        h.save_proj(filename=None)
-
+        
+        try:
+            msg('Saving project', 'ok')
+            h.save_proj(filename=None)
+            msg('Done', 'ok')
+        except Exception as e:
+            msg('Error saving project.\n'+str(e), 'fail')
 
 if SAVE_PROJ:
-    h.save_proj()
+    try:
+        msg('Saving project', 'ok')
+        h.save_proj()
+        msg('Done', 'ok')
+    except Exception as e:
+        msg('Error saving project.\n'+str(e), 'fail')
+

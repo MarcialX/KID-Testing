@@ -2272,213 +2272,217 @@ class Homodyne:
         if atten is None:
             atten = self.overdriven
 
-        for k, kid in enumerate(kids):
-            k2 = int(kid[1:])
-            tmp = self._get_temps_to_sweep(temp, kid, mode='ts')[0]
-            att = self._get_atten_to_sweep(atten[k2], tmp, kid, mode='ts')[0]
+        if len(atten) <= 0: 
+            msg('No overdriven attenuations available', 'fail')
+            return 
+        else:
+            for k, kid in enumerate(kids):
+                k2 = int(kid[1:])
+                tmp = self._get_temps_to_sweep(temp, kid, mode='ts')[0]
+                att = self._get_atten_to_sweep(atten[k2], tmp, kid, mode='ts')[0]
 
-            low_cols.append( len(self.data['ts'][kid][tmp][att]['I_on'][0]) )
-            high_cols.append( len(self.data['ts'][kid][tmp][att]['I_on'][1]) )
+                low_cols.append( len(self.data['ts'][kid][tmp][att]['I_on'][0]) )
+                high_cols.append( len(self.data['ts'][kid][tmp][att]['I_on'][1]) )
 
-        xl = len(kids)
-        yl = np.max(low_cols)
+            xl = len(kids)
+            yl = np.max(low_cols)
 
-        fig_I_low, ax_I_low = subplots(xl, yl, sharey='row', figsize=(20,12))
-        subplots_adjust(left=0.1, right=0.99, top=0.99, bottom=0.08, hspace=0.1, wspace=0.035)
-        fig_Q_low, ax_Q_low = subplots(xl, yl, sharey='row', figsize=(20,12))
-        subplots_adjust(left=0.1, right=0.99, top=0.99, bottom=0.08, hspace=0.1, wspace=0.035)
-
-        xh = len(kids)
-        yh = np.max(high_cols)
-        ymax = 10
-
-        figs_I, axs_I = [], []
-        figs_Q, axs_Q = [], []
-        for i in range(int(yh/ymax)):
-            fig_I_high, ax_I_high = subplots(xh, ymax, sharey='row', figsize=(20,12))
+            fig_I_low, ax_I_low = subplots(xl, yl, sharey='row', figsize=(20,12))
             subplots_adjust(left=0.1, right=0.99, top=0.99, bottom=0.08, hspace=0.1, wspace=0.035)
-            figs_I.append(fig_I_high)
-            axs_I.append(ax_I_high)
-
-            fig_Q_high, ax_Q_high = subplots(xh, ymax, sharey='row', figsize=(20,12))
+            fig_Q_low, ax_Q_low = subplots(xl, yl, sharey='row', figsize=(20,12))
             subplots_adjust(left=0.1, right=0.99, top=0.99, bottom=0.08, hspace=0.1, wspace=0.035)
-            figs_Q.append(fig_Q_high)
-            axs_Q.append(ax_Q_high)
 
-        fig_name = ""
-        norm_color = matplotlib.colors.Normalize(vmin=0, vmax=len(kids))
-        for k, kid in enumerate(kids):
-            k2 = int(kid[1:])
-            tmp = self._get_temps_to_sweep(temp, kid)[0]
-            att = self._get_atten_to_sweep(atten[k2], tmp, kid)[0]
+            xh = len(kids)
+            yh = np.max(high_cols)
+            ymax = 10
 
-            for ts in range(yl):
-                try:
-                    ts_low = self.data['ts'][kid][tmp][att]['ts_on'][0]
-                    I_low = self.data['ts'][kid][tmp][att]['I_on'][0][ts]
-                    Q_low = self.data['ts'][kid][tmp][att]['Q_on'][0][ts]
+            figs_I, axs_I = [], []
+            figs_Q, axs_Q = [], []
+            for i in range(int(yh/ymax)):
+                fig_I_high, ax_I_high = subplots(xh, ymax, sharey='row', figsize=(20,12))
+                subplots_adjust(left=0.1, right=0.99, top=0.99, bottom=0.08, hspace=0.1, wspace=0.035)
+                figs_I.append(fig_I_high)
+                axs_I.append(ax_I_high)
 
-                    if len(kids) == 1:
-                        ax_I_low[ts].plot(ts_low, I_low, lw=0.75, color=cmap(norm_color(k)))
-                        ax_Q_low[ts].plot(ts_low, Q_low, lw=0.75, color=cmap(norm_color(k)))
+                fig_Q_high, ax_Q_high = subplots(xh, ymax, sharey='row', figsize=(20,12))
+                subplots_adjust(left=0.1, right=0.99, top=0.99, bottom=0.08, hspace=0.1, wspace=0.035)
+                figs_Q.append(fig_Q_high)
+                axs_Q.append(ax_Q_high)
 
-                        ax_I_low[ts].text(0.85, 0.85, str(ts), {'fontsize': 10, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_I_low[ts].transAxes)
-                        ax_Q_low[ts].text(0.85, 0.85, str(ts), {'fontsize': 10, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_Q_low[ts].transAxes)
+            fig_name = ""
+            norm_color = matplotlib.colors.Normalize(vmin=0, vmax=len(kids))
+            for k, kid in enumerate(kids):
+                k2 = int(kid[1:])
+                tmp = self._get_temps_to_sweep(temp, kid)[0]
+                att = self._get_atten_to_sweep(atten[k2], tmp, kid)[0]
 
-                        if ts == 0:
-                            ax_I_low[ts].set_ylabel(kid+'\n I[V]')
-                            ax_Q_low[ts].set_ylabel(kid+'\n Q[V]')
+                for ts in range(yl):
+                    try:
+                        ts_low = self.data['ts'][kid][tmp][att]['ts_on'][0]
+                        I_low = self.data['ts'][kid][tmp][att]['I_on'][0][ts]
+                        Q_low = self.data['ts'][kid][tmp][att]['Q_on'][0][ts]
 
-                        if k == len(kids)-1:
-                            ax_I_low[ts].set_xlabel('\nTime[s]')
-                            ax_Q_low[ts].set_xlabel(kid+'\nTime[s]')
-                        else:
-                            ax_I_low[ts].set_xticks([])
-                            ax_Q_low[ts].set_xticks([])
+                        if len(kids) == 1:
+                            ax_I_low[ts].plot(ts_low, I_low, lw=0.75, color=cmap(norm_color(k)))
+                            ax_Q_low[ts].plot(ts_low, Q_low, lw=0.75, color=cmap(norm_color(k)))
 
-                        if ts in ignore[0]:
-                            ax_I_low[ts].patch.set_facecolor('red')
-                            ax_I_low[ts].patch.set_alpha(0.2)
+                            ax_I_low[ts].text(0.85, 0.85, str(ts), {'fontsize': 10, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_I_low[ts].transAxes)
+                            ax_Q_low[ts].text(0.85, 0.85, str(ts), {'fontsize': 10, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_Q_low[ts].transAxes)
 
-                            ax_Q_low[ts].patch.set_facecolor('red')
-                            ax_Q_low[ts].patch.set_alpha(0.2)
+                            if ts == 0:
+                                ax_I_low[ts].set_ylabel(kid+'\n I[V]')
+                                ax_Q_low[ts].set_ylabel(kid+'\n Q[V]')
 
-                        else:
-                            ax_I_low[ts].patch.set_facecolor('green')
-                            ax_I_low[ts].patch.set_alpha(0.2)
+                            if k == len(kids)-1:
+                                ax_I_low[ts].set_xlabel('\nTime[s]')
+                                ax_Q_low[ts].set_xlabel(kid+'\nTime[s]')
+                            else:
+                                ax_I_low[ts].set_xticks([])
+                                ax_Q_low[ts].set_xticks([])
 
-                            ax_Q_low[ts].patch.set_facecolor('green')
-                            ax_Q_low[ts].patch.set_alpha(0.2)
+                            if ts in ignore[0]:
+                                ax_I_low[ts].patch.set_facecolor('red')
+                                ax_I_low[ts].patch.set_alpha(0.2)
 
-                    else:
-                        ax_I_low[k, ts].plot(ts_low, I_low, lw=0.75, color=cmap(norm_color(k)))
-                        ax_Q_low[k, ts].plot(ts_low, Q_low, lw=0.75, color=cmap(norm_color(k)))
+                                ax_Q_low[ts].patch.set_facecolor('red')
+                                ax_Q_low[ts].patch.set_alpha(0.2)
 
-                        ax_I_low[k, ts].text(0.85, 0.85, str(ts), {'fontsize': 10, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_I_low[k, ts].transAxes)
-                        ax_Q_low[k, ts].text(0.85, 0.85, str(ts), {'fontsize': 10, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_Q_low[k, ts].transAxes)
+                            else:
+                                ax_I_low[ts].patch.set_facecolor('green')
+                                ax_I_low[ts].patch.set_alpha(0.2)
 
-                        if ts == 0:
-                            ax_I_low[k, ts].set_ylabel(kid+'\n I[V]')
-                            ax_Q_low[k, ts].set_ylabel(kid+'\n Q[V]')
-
-                        if k == len(kids)-1:
-                            ax_I_low[k, ts].set_xlabel('\nTime[s]')
-                            ax_Q_low[k, ts].set_xlabel(kid+'\nTime[s]')
-                        else:
-                            ax_I_low[k, ts].set_xticks([])
-                            ax_Q_low[k, ts].set_xticks([])
-
-                        if ts in ignore[0]:
-                            ax_I_low[k, ts].patch.set_facecolor('red')
-                            ax_I_low[k, ts].patch.set_alpha(0.2)
-
-                            ax_Q_low[k, ts].patch.set_facecolor('red')
-                            ax_Q_low[k, ts].patch.set_alpha(0.2)
+                                ax_Q_low[ts].patch.set_facecolor('green')
+                                ax_Q_low[ts].patch.set_alpha(0.2)
 
                         else:
-                            ax_I_low[k, ts].patch.set_facecolor('green')
-                            ax_I_low[k, ts].patch.set_alpha(0.2)
+                            ax_I_low[k, ts].plot(ts_low, I_low, lw=0.75, color=cmap(norm_color(k)))
+                            ax_Q_low[k, ts].plot(ts_low, Q_low, lw=0.75, color=cmap(norm_color(k)))
 
-                            ax_Q_low[k, ts].patch.set_facecolor('green')
-                            ax_Q_low[k, ts].patch.set_alpha(0.2)
+                            ax_I_low[k, ts].text(0.85, 0.85, str(ts), {'fontsize': 10, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_I_low[k, ts].transAxes)
+                            ax_Q_low[k, ts].text(0.85, 0.85, str(ts), {'fontsize': 10, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_Q_low[k, ts].transAxes)
 
-                except Exception as e:
-                    msg(kid+'-'+tmp+'-'+att+'-'+str(e), 'warn')
+                            if ts == 0:
+                                ax_I_low[k, ts].set_ylabel(kid+'\n I[V]')
+                                ax_Q_low[k, ts].set_ylabel(kid+'\n Q[V]')
 
-            cnt = -1
-            for th in range(yh):
-                if th%ymax == 0:
-                    cnt += 1
+                            if k == len(kids)-1:
+                                ax_I_low[k, ts].set_xlabel('\nTime[s]')
+                                ax_Q_low[k, ts].set_xlabel(kid+'\nTime[s]')
+                            else:
+                                ax_I_low[k, ts].set_xticks([])
+                                ax_Q_low[k, ts].set_xticks([])
 
-                m = th%ymax
+                            if ts in ignore[0]:
+                                ax_I_low[k, ts].patch.set_facecolor('red')
+                                ax_I_low[k, ts].patch.set_alpha(0.2)
 
-                try:
-                    ts_high = self.data['ts'][kid][tmp][att]['ts_on'][1]
-                    I_high = self.data['ts'][kid][tmp][att]['I_on'][1][th]
-                    Q_high = self.data['ts'][kid][tmp][att]['Q_on'][1][th]
+                                ax_Q_low[k, ts].patch.set_facecolor('red')
+                                ax_Q_low[k, ts].patch.set_alpha(0.2)
 
-                    if len(kids) == 1:
-                        axs_I[cnt][m].plot(ts_high, I_high, lw=0.75, color=cmap(norm_color(k)))
-                        axs_Q[cnt][m].plot(ts_high, Q_high, lw=0.75, color=cmap(norm_color(k)))
+                            else:
+                                ax_I_low[k, ts].patch.set_facecolor('green')
+                                ax_I_low[k, ts].patch.set_alpha(0.2)
 
-                        axs_I[cnt][m].text(0.85, 0.85, str(th), {'fontsize': 10, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=axs_I[cnt][m].transAxes)
-                        axs_Q[cnt][m].text(0.85, 0.85, str(th), {'fontsize': 10, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=axs_I[cnt][m].transAxes)
+                                ax_Q_low[k, ts].patch.set_facecolor('green')
+                                ax_Q_low[k, ts].patch.set_alpha(0.2)
 
-                        if th == 0:
-                            axs_I[cnt][m].set_ylabel(kid+'\n I[V]')
-                            axs_Q[cnt][m].set_ylabel(kid+'\n Q[V]')
+                    except Exception as e:
+                        msg(kid+'-'+tmp+'-'+att+'-'+str(e), 'warn')
 
-                        if k == len(kids)-1:
-                            axs_I[cnt][m].set_xlabel('\nTime[s]')
-                            axs_Q[cnt][m].set_xlabel(kid+'\nTime[s]')
-                        else:
-                            axs_I[cnt][m].set_xticks([])
-                            axs_Q[cnt][m].set_xticks([])
+                cnt = -1
+                for th in range(yh):
+                    if th%ymax == 0:
+                        cnt += 1
 
-                        if th in ignore[1]:
-                            axs_I[cnt][m].patch.set_facecolor('red')
-                            axs_I[cnt][m].patch.set_alpha(0.2)
+                    m = th%ymax
 
-                            axs_Q[cnt][m].patch.set_facecolor('red')
-                            axs_Q[cnt][m].patch.set_alpha(0.2)
+                    try:
+                        ts_high = self.data['ts'][kid][tmp][att]['ts_on'][1]
+                        I_high = self.data['ts'][kid][tmp][att]['I_on'][1][th]
+                        Q_high = self.data['ts'][kid][tmp][att]['Q_on'][1][th]
 
-                        else:
-                            axs_I[cnt][m].patch.set_facecolor('green')
-                            axs_I[cnt][m].patch.set_alpha(0.2)
+                        if len(kids) == 1:
+                            axs_I[cnt][m].plot(ts_high, I_high, lw=0.75, color=cmap(norm_color(k)))
+                            axs_Q[cnt][m].plot(ts_high, Q_high, lw=0.75, color=cmap(norm_color(k)))
 
-                            axs_Q[cnt][m].patch.set_facecolor('green')
-                            axs_Q[cnt][m].patch.set_alpha(0.2)
+                            axs_I[cnt][m].text(0.85, 0.85, str(th), {'fontsize': 10, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=axs_I[cnt][m].transAxes)
+                            axs_Q[cnt][m].text(0.85, 0.85, str(th), {'fontsize': 10, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=axs_I[cnt][m].transAxes)
 
-                    else:                        
-                        axs_I[cnt][k, m].plot(ts_high, I_high, lw=0.75, color=cmap(norm_color(k)))
-                        axs_Q[cnt][k, m].plot(ts_high, Q_high, lw=0.75, color=cmap(norm_color(k)))
+                            if th == 0:
+                                axs_I[cnt][m].set_ylabel(kid+'\n I[V]')
+                                axs_Q[cnt][m].set_ylabel(kid+'\n Q[V]')
 
-                        axs_I[cnt][k, m].text(0.85, 0.85, str(th), {'fontsize': 10, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=axs_I[cnt][k, m].transAxes)
-                        axs_Q[cnt][k, m].text(0.85, 0.85, str(th), {'fontsize': 10, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=axs_I[cnt][k, m].transAxes)
+                            if k == len(kids)-1:
+                                axs_I[cnt][m].set_xlabel('\nTime[s]')
+                                axs_Q[cnt][m].set_xlabel(kid+'\nTime[s]')
+                            else:
+                                axs_I[cnt][m].set_xticks([])
+                                axs_Q[cnt][m].set_xticks([])
 
-                        if th == 0:
-                            axs_I[cnt][k, m].set_ylabel(kid+'\n I[V]')
-                            axs_Q[cnt][k, m].set_ylabel(kid+'\n Q[V]')
+                            if th in ignore[1]:
+                                axs_I[cnt][m].patch.set_facecolor('red')
+                                axs_I[cnt][m].patch.set_alpha(0.2)
 
-                        if k == len(kids)-1:
-                            axs_I[cnt][k, m].set_xlabel('\nTime[s]')
-                            axs_Q[cnt][k, m].set_xlabel(kid+'\nTime[s]')
-                        else:
-                            axs_I[cnt][k, m].set_xticks([])
-                            axs_Q[cnt][k, m].set_xticks([])
+                                axs_Q[cnt][m].patch.set_facecolor('red')
+                                axs_Q[cnt][m].patch.set_alpha(0.2)
 
-                        if th in ignore[1]:
-                            axs_I[cnt][k, m].patch.set_facecolor('red')
-                            axs_I[cnt][k, m].patch.set_alpha(0.2)
+                            else:
+                                axs_I[cnt][m].patch.set_facecolor('green')
+                                axs_I[cnt][m].patch.set_alpha(0.2)
 
-                            axs_Q[cnt][k, m].patch.set_facecolor('red')
-                            axs_Q[cnt][k, m].patch.set_alpha(0.2)
+                                axs_Q[cnt][m].patch.set_facecolor('green')
+                                axs_Q[cnt][m].patch.set_alpha(0.2)
 
-                        else:
-                            axs_I[cnt][k, m].patch.set_facecolor('green')
-                            axs_I[cnt][k, m].patch.set_alpha(0.2)
+                        else:                        
+                            axs_I[cnt][k, m].plot(ts_high, I_high, lw=0.75, color=cmap(norm_color(k)))
+                            axs_Q[cnt][k, m].plot(ts_high, Q_high, lw=0.75, color=cmap(norm_color(k)))
 
-                            axs_Q[cnt][k, m].patch.set_facecolor('green')
-                            axs_Q[cnt][k, m].patch.set_alpha(0.2)
+                            axs_I[cnt][k, m].text(0.85, 0.85, str(th), {'fontsize': 10, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=axs_I[cnt][k, m].transAxes)
+                            axs_Q[cnt][k, m].text(0.85, 0.85, str(th), {'fontsize': 10, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=axs_I[cnt][k, m].transAxes)
 
-                except Exception as e:
-                    msg(kid+'-'+tmp+'-'+att+'-'+str(e), 'warn')
+                            if th == 0:
+                                axs_I[cnt][k, m].set_ylabel(kid+'\n I[V]')
+                                axs_Q[cnt][k, m].set_ylabel(kid+'\n Q[V]')
 
-            fig_name += kid+'-'
+                            if k == len(kids)-1:
+                                axs_I[cnt][k, m].set_xlabel('\nTime[s]')
+                                axs_Q[cnt][k, m].set_xlabel(kid+'\nTime[s]')
+                            else:
+                                axs_I[cnt][k, m].set_xticks([])
+                                axs_Q[cnt][k, m].set_xticks([])
 
-        # Save figures
-        fig_name = fig_name[:-1]
-        fig_I_low.savefig(self.work_dir+self.project_name+'/fit_psd_results/I_low-ts-'+fig_name+'.png')
-        close(fig_I_low)
-        fig_Q_low.savefig(self.work_dir+self.project_name+'/fit_psd_results/Q_low-ts-'+fig_name+'.png')
-        close(fig_Q_low)
+                            if th in ignore[1]:
+                                axs_I[cnt][k, m].patch.set_facecolor('red')
+                                axs_I[cnt][k, m].patch.set_alpha(0.2)
 
-        # Save figures
-        for c in range(len(figs_I)):
-            figs_I[c].savefig(self.work_dir+self.project_name+'/fit_psd_results/I_high-ts-'+fig_name+'-'+str(c)+'.png')
-            close(figs_I[c])
-            figs_Q[c].savefig(self.work_dir+self.project_name+'/fit_psd_results/Q_high-ts-'+fig_name+'-'+str(c)+'.png')
-            close(figs_Q[c])
+                                axs_Q[cnt][k, m].patch.set_facecolor('red')
+                                axs_Q[cnt][k, m].patch.set_alpha(0.2)
+
+                            else:
+                                axs_I[cnt][k, m].patch.set_facecolor('green')
+                                axs_I[cnt][k, m].patch.set_alpha(0.2)
+
+                                axs_Q[cnt][k, m].patch.set_facecolor('green')
+                                axs_Q[cnt][k, m].patch.set_alpha(0.2)
+
+                    except Exception as e:
+                        msg(kid+'-'+tmp+'-'+att+'-'+str(e), 'warn')
+
+                fig_name += kid+'-'
+
+            # Save figures
+            fig_name = fig_name[:-1]
+            fig_I_low.savefig(self.work_dir+self.project_name+'/fit_psd_results/I_low-ts-'+fig_name+'.png')
+            close(fig_I_low)
+            fig_Q_low.savefig(self.work_dir+self.project_name+'/fit_psd_results/Q_low-ts-'+fig_name+'.png')
+            close(fig_Q_low)
+
+            # Save figures
+            for c in range(len(figs_I)):
+                figs_I[c].savefig(self.work_dir+self.project_name+'/fit_psd_results/I_high-ts-'+fig_name+'-'+str(c)+'.png')
+                close(figs_I[c])
+                figs_Q[c].savefig(self.work_dir+self.project_name+'/fit_psd_results/Q_high-ts-'+fig_name+'-'+str(c)+'.png')
+                close(figs_Q[c])
 
     def plot_all_s21_kids(self, kid, temp, atten, sample=0, over_attens=True, data_source='vna', cmap='jet', fig_name=None):
         """
