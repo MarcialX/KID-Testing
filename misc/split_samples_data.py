@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # --------------------------------------------------------------------------------- #
-# KIDs Lab. Split the data in folders per sample
+# KIDs Lab. Split the data in folders per sample [DEPRECATED]
 # split_samples_data.py
 # Separate the data samples in different folders
 #

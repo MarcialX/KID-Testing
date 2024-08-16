@@ -100,6 +100,8 @@ class Homodyne:
         only_vna = kwargs.pop('only_vna', False)
         # Overdriven power for each KID
         overdriven = kwargs.pop('overdriven', [])
+        # Create project folder
+        create_folder = kwargs.pop('create_folder', True)
         # Expected KIDs
         expected = kwargs.pop('expected', None)
         # Load saved project
@@ -145,22 +147,23 @@ class Homodyne:
         self.data_diry = diry
 
         # Create working directory
-        self._create_diry(self.work_dir+self.project_name)
-        self._create_diry(self.work_dir+self.project_name+'/fit_res_results')
-        self._create_diry(self.work_dir+self.project_name+'/fit_res_results/vna')
-        self._create_diry(self.work_dir+self.project_name+'/fit_res_results/homodyne')
-        self._create_diry(self.work_dir+self.project_name+'/fit_res_results/summary_plots')
+        if create_folder:
+            self._create_diry(self.work_dir+self.project_name)
+            self._create_diry(self.work_dir+self.project_name+'/fit_res_results')
+            self._create_diry(self.work_dir+self.project_name+'/fit_res_results/vna')
+            self._create_diry(self.work_dir+self.project_name+'/fit_res_results/homodyne')
+            self._create_diry(self.work_dir+self.project_name+'/fit_res_results/summary_plots')
 
-        self._create_diry(self.work_dir+self.project_name+'/fit_res_dict')
-        self._create_diry(self.work_dir+self.project_name+'/fit_res_dict/vna')
-        self._create_diry(self.work_dir+self.project_name+'/fit_res_dict/homodyne')
-        self._create_diry(self.work_dir+self.project_name+'/fit_res_dict/responsivity')
-        self._create_diry(self.work_dir+self.project_name+'/fit_res_dict/nep')
+            self._create_diry(self.work_dir+self.project_name+'/fit_res_dict')
+            self._create_diry(self.work_dir+self.project_name+'/fit_res_dict/vna')
+            self._create_diry(self.work_dir+self.project_name+'/fit_res_dict/homodyne')
+            self._create_diry(self.work_dir+self.project_name+'/fit_res_dict/responsivity')
+            self._create_diry(self.work_dir+self.project_name+'/fit_res_dict/nep')
 
-        self._create_diry(self.work_dir+self.project_name+'/fit_psd_results')
-        self._create_diry(self.work_dir+self.project_name+'/fit_psd_dict')
+            self._create_diry(self.work_dir+self.project_name+'/fit_psd_results')
+            self._create_diry(self.work_dir+self.project_name+'/fit_psd_dict')
 
-        self._create_diry(self.work_dir+self.project_name+'/backup_data')
+            self._create_diry(self.work_dir+self.project_name+'/backup_data')
 
         self.add_in_atten = add_in_att
         self.add_out_atten = add_out_att
@@ -173,6 +176,10 @@ class Homodyne:
         self.Delta = 1
 
         self.od_cols = 5
+
+        self._edit_mode = False
+        self._range_flag = False
+        self._range = [0, 0]
 
         msg('Done', 'ok')
 
@@ -906,13 +913,13 @@ class Homodyne:
         Update finding KIDs plot.
         """
         # Plot original and fit
-        self._ax.semilogx(freq, 20*np.log10(np.abs(s21)), 'b')
+        self._ax.plot(freq, 20*np.log10(np.abs(s21)), 'b')
 
         for p, peak in enumerate(peaks):
             if flags[p]:
                 axvline(freq[peak], color='r')
             else:
-                axvline(freq[peak], color='k', lw=0.5)
+                axvline(freq[peak], color='k', lw=0.35)
 
         if self._mode:
             self._ax.patch.set_facecolor('green')
@@ -924,12 +931,40 @@ class Homodyne:
         self._ax.set_xlabel(r'Frequency [Hz]')
         self._ax.set_ylabel(r'S21 [dB]')
 
-    def _key_pressed_find_kids(self, event):
+        if self._edit_mode:
+            if self._mode:
+                str_mode = 'Add resonances'
+            else:
+                str_mode = 'Remove resonances'
+            self._ax.set_title('EDITION MODE. '+str_mode)            
+        else:
+            self._ax.set_title('VISUALISATION MODE')
+
+        # Add a text box
+        instructions_text = "x : save and quit\nq : quit\nd : default\nu : update\ne : edit mode\n  a : add resonances\n  r : remove resonances\n    w : select range"
+        self._ax.text(0.03, 0.05, instructions_text, fontsize=13, transform=self._ax.transAxes)
+
+        n_kids = np.sum(self._flags)
+        summary_text = f"Resonators : {n_kids}"
+        self._ax.text(0.03, 0.95, summary_text, fontsize=16, transform=self._ax.transAxes)
+
+    def _key_pressed_find_kids(self, event, thresh=5e4):
         """
         Keyboard event to save/discard line fitting changes
+        Keys:
+            'x' : save and quit
+            'q' : quit
+            'd' : go back to default settings
+            'u' : update
+            'a' : add resonances
+            'r' : remove resonances
+            'e' : edit plot
+            'z' : add/remove a tonelist where the cursor is
         """
+        
         sys.stdout.flush()
-        if event.key in ['x', 'q', 'd', 'u', 'a', 'r']:
+
+        if event.key in ['x', 'q', 'd', 'u', 'a', 'r', 'e', 'w', 'z']:
 
             if event.key == 'x':
                 self._fig.canvas.mpl_disconnect(self._onclick_xy)
@@ -942,6 +977,18 @@ class Homodyne:
                     if self._flags[p]:
                         sel_peaks.append(self._freq[peak])
                 self.found_kids = sel_peaks
+
+                # C R E A T E   T O N E S L I S T
+                # --------------------------------
+                tonelist_name = 'Toneslist-'+self.project_name+'.txt'
+                with open(tonelist_name, 'w') as file:
+                    file.write('Name\tFreq\tOffset\tatt\tAll\tNone\n')
+                    for kid in range(len(self.found_kids)):
+                        kid_name = 'K'+str(kid).zfill(3)
+                        file.write(f'{kid_name}\t{self.found_kids[kid]:.0f}\t0\t1\t0\n')
+                
+                msg('Tonelist file save as: '+tonelist_name, 'info')
+
                 msg('Changes saved!', 'info')
 
             elif event.key == 'u':
@@ -951,7 +998,7 @@ class Homodyne:
 
             elif event.key == 'a':
                 self._mode = True
-                cla()
+                #cla()
                 self.update_plot_find_kids(self._freq, self._s21, self._peaks, self._flags)
                 self._fig.canvas.draw_idle()
 
@@ -959,6 +1006,43 @@ class Homodyne:
                 self._mode = False
                 cla()
                 self.update_plot_find_kids(self._freq, self._s21, self._peaks, self._flags)
+                self._fig.canvas.draw_idle()
+            
+            elif event.key == 'w':
+                self._range_flag = not self._range_flag
+
+            elif event.key == 'z':
+
+                self._range_flag = False
+
+                upper_limit = np.max(self._range)
+                lower_limit = np.min(self._range)
+
+                for p, peak in enumerate(self._peaks):
+                    fp = self._freq[peak]
+                    if (fp > lower_limit) and (fp < upper_limit):
+                        self._flags[p] = False
+
+                cla()
+                self.update_plot_find_kids(self._freq, self._s21, self._peaks, self._flags)
+                self._fig.canvas.draw_idle()              
+
+            elif event.key == 'e':
+                self._edit_mode = not self._edit_mode
+                if self._edit_mode:
+                    if self._mode:
+                        str_mode = 'Add resonances'
+                    else:
+                        str_mode = 'Remove resonances'
+                    self._ax.set_title('EDITION MODE. '+str_mode)
+                    self._ax.tick_params(color='blue', labelcolor='blue')
+                    for spine in self._ax.spines.values():
+                        spine.set_edgecolor('blue')
+                else:
+                    self._ax.set_title('VISUALISATION MODE')
+                    self._ax.tick_params(color='black', labelcolor='black')
+                    for spine in self._ax.spines.values():
+                        spine.set_edgecolor('black')
                 self._fig.canvas.draw_idle()
 
             elif event.key == 'd':
@@ -995,18 +1079,27 @@ class Homodyne:
                         flag_done = False
                         break
 
-                if flag_done and self._mode:
-                    ix_idx = np.where(ix<self._freq)[0][0]
-                    self._peaks.append(ix_idx)
-                    self._flags.append(True)
+                if self._edit_mode:
+                    if flag_done and self._mode:
+                        ix_idx = np.where(ix<self._freq)[0][0]
+                        self._peaks.append(ix_idx)
+                        self._flags.append(True)
 
-                if self._mode:
-                    self._ax.axvline(ix, color='g')
-                    self._fig.canvas.draw_idle()
-                else:
-                    cla()
-                    self.update_plot_find_kids(self._freq, self._s21, self._peaks, self._flags)
-                    self._fig.canvas.draw_idle()
+                    if self._mode:
+                        self._ax.axvline(ix, color='g')
+                        self._fig.canvas.draw_idle()
+                    
+                    else:
+                        if self._range_flag:
+                            self._ax.axvline(ix, color='b', linestyle='dashed', linewidth=1.5)
+                            self._range[1] = self._range[0]
+                            self._range[0] = ix
+
+                        else:
+                            cla()
+                            self.update_plot_find_kids(self._freq, self._s21, self._peaks, self._flags)
+
+                        self._fig.canvas.draw_idle()
 
     def split_continuous_by_kid(self, temp=None, atten=None, lws=6, Qr=1000):
         """
