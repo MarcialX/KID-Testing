@@ -5,17 +5,16 @@ Initial variables:
     2. [opt] The program should be able to recognize the data nature: BB or dark. If not, the user can force to use one of them.
 
 
-1. Load the data from a single folder:
-    a. VNA and Homodyne data. Or just URLs? Just read the data from the VNA and get the I/Q timestreams from the Homodyne (no derotate, no magic formula).
-    b. Save data as npy. The next time user can choose just load data from npy.
-2. Fit detectors:
-    Defining KID ID, temperature, and attenuation
-    a. Include an option to fit all of them.
-    b. Add timeouts to the fits.
-3. Get df, phase.
+1. [DONE] Load the data from a single folder:
+    a. [DONE] VNA and Homodyne data. Or just URLs? Just read the data from the VNA and get the I/Q timestreams from the Homodyne (no derotate, no magic formula).
+    b. [DONE] Save data as npy. The next time user can choose just load data from npy.
+2. [DONE] Fit detectors:
+    [DONE] Defining KID ID, temperature, and attenuation
+    a. [DONE] Include an option to fit all of them.
+    b. [DONE] Add timeouts to the fits.
+3. [DONE] Get df, phase.
     a. Derotated or not.
-4. Get responsivity.
-5. Get NEP.
+4. [DONE] Get responsivity.
+5. [DONE] Get NEP.
 6. Visualisation tool.
 7. Add more valuable properties from the Pete/Simon thesis.
-        
