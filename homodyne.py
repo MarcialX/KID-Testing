@@ -1534,9 +1534,7 @@ class Homodyne:
                     f0 = self.data['vna'][kid][tmp][att]['fit']['fr']
                     Qr = self.data['vna'][kid][tmp][att]['fit']['Qr'] 
                 else:
-                    msg('Fit for f0 and Qr are not available.\n \
-                        f0 selected as the minimum of S21 magnitude.\n \
-                        Qr defined as zero, i.e. ring-down time will not be considered.', 'warn')
+                    msg('Fit for f0 and Qr are not available.\nf0 selected as the minimum of S21 magnitude.\nQr defined as zero, i.e. ring-down time will not be considered.', 'warn')
                     fd, s21_d = self.data['vna'][kid][tmp][att]['data'][0]
                     f0 = fd[np.nanargmin(s21_d)]
                     Qr = 0
