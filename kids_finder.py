@@ -55,7 +55,7 @@ if temp is None:
 if atte is None:
     atte = 40
 if mode is None:
-    mode = "D"
+    mode = "B"
 
 # L O A D   D A T A
 # --------------------------------------------------

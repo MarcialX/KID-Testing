@@ -195,9 +195,9 @@ for s, step in enumerate(TASKS):
 
         try:
             h.merge_fit_res(kids, temps, atts, samples)
-        except:
+        except Exception as e:
             msg('Merge was not possible.', 'fail')
-
+            
         if xls_report:
             try:
                 h.vna_xls_report()
@@ -343,6 +343,8 @@ for s, step in enumerate(TASKS):
                 the_args['fit_psd'] = task_params['fit_psd']            
             elif p == 'plot_fit':
                 the_args['plot_fit'] = task_params['plot_fit']
+            elif p == 'psd_type':
+                the_args['psd_type'] = task_params['psd_type']
             elif p == 'n_pts':
                 the_args['n_pts'] = task_params['n_pts']
             elif p == 'inter':

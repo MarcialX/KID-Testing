@@ -430,3 +430,70 @@ def get_noise_from_single_file(path, deglitch=False, avoid=[[0, 1], []], **kwarg
     tm = np.arange(0, (1/fs)*len(i_t), 1/fs)
 
     return tm, Id, Qd, hdr
+
+def get_rot_iq_circle(f0, I0, Q0, fs, Is, Qs, f0_thresh=8e4):
+    """
+    Get rotation angle of IQ circle.
+    Parameters
+    ----------
+    I/Q : arrays
+        I/Q timestreams.
+    f0 : array
+        Resonance frequency.
+    I0/Q0 : arrays
+        I/Q at resonance frequency.
+    fs : array
+        Frequency sweep (from s21).
+    Is/Qs : arrays
+        Is/Qs resonance frequency sweeps.
+    ----------
+    """
+
+    sel = np.abs(fs - f0) < f0_thresh
+    xc, yc, r = fitCirc(Is[sel], Qs[sel])
+
+    theta = np.arctan2(Q0 - yc, I0 - xc)
+
+    Is_derot = (Is - xc)*np.cos(-theta)-(Qs - yc)*np.sin(-theta)
+    Qs_derot = (Is - xc)*np.sin(-theta)+(Qs - yc)*np.cos(-theta)
+
+    """
+    figure()
+    plot(Is[sel], Qs[sel], 'b.')
+    plot(Is, Qs)
+    plot(Is_derot, Qs_derot)
+    plot(Is_derot[sel], Qs_derot[sel], 'r.')
+    savefig('FigureX')
+    """
+    
+    return xc, yc, theta, Is_derot, Qs_derot
+
+def derot_phase(xc, yc, theta, I, Q):
+    """
+    Derotate IQ circle to timestream data.
+    Parameters
+    ----------
+    xc, yc : float
+        IQ circle centre.
+    theta : float
+        IQ rotation angle.
+    I/Q : array
+        I/Q rotated timestream. 
+    ----------
+    """
+
+    phases = []
+    for i in range(len(I)):
+        I_derot = (I[i] - xc)*np.cos(-theta) - (Q[i] - yc)*np.sin(-theta)
+        Q_derot = (I[i] - xc)*np.sin(-theta) + (Q[i] - yc)*np.cos(-theta)
+
+        phase = np.arctan2(Q_derot, I_derot)
+        phases.append(phase)
+
+        """
+        figure(str(i))
+        plot(phase)
+        savefig(str(i))
+        """
+        
+    return phases

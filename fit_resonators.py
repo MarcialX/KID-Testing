@@ -155,6 +155,8 @@ def coarse_fit(f, data, **kwargs):
     I = data.real
     Q = data.imag
 
+    #plot(f, 20*np.log10(np.abs(data)), 's-')
+
     # 1. Remove the cable delay
     # ------------------------------------------
     cable_delay_model = CableDelay(tau=tau)
@@ -223,10 +225,17 @@ def coarse_fit(f, data, **kwargs):
     Qc = Qr*(mag_zc + r)/(2*r)
     phi = theta_0 - arg_zc
 
+    """
+    if Qc > 2e5:
+        Qc = 20e3
+        Qr = 2e3
+        phi = 0
+    """
+        
     return ar, ai, Qr, fr, Qc, phi
 
 
-@timeout(100)
+@timeout(150)
 def fit_resonator(f, s21, n=3.5, **kwargs):
     """
         Fit resonator based on Gao model.
@@ -275,6 +284,13 @@ def fit_resonator(f, s21, n=3.5, **kwargs):
         to_idx = len(f)
     else:
         to_idx = np.where(f>=to_idx)[0][0]
+
+    """
+    # Please comment this
+    print(from_idx, to_idx)
+    from_idx = 0
+    to_idx = -1
+    """
 
     guess = res_model.guess(f[from_idx:to_idx], s21[from_idx:to_idx])
 
