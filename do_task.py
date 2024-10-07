@@ -100,6 +100,11 @@ try:
 except:
     DIMENSIONS = [1,1,1]
 
+try:
+    TRIM_FRACTION = gral_params['TRIM_EDGES']
+except:
+    TRIM_FRACTION = 0.25
+
 # R U N   T A S K S
 # --------------------------------------------------
 # Create the homodyne object
@@ -110,7 +115,7 @@ else:
 
 h = Homodyne(used_project, work_dir=project_path, proj_name=project_name, load_saved=LOAD_PROJ, 
             overdriven=atts_overdriven, add_in_atten=add_in_atten, add_out_atten=add_out_atten,
-            material=MATERIAL, dims=DIMENSIONS)
+            material=MATERIAL, dims=DIMENSIONS, w=TRIM_FRACTION)
 
 TASKS = tasks_data['TASKS']
 
@@ -136,23 +141,48 @@ for s, step in enumerate(TASKS):
                 the_args['n'] = task_params['n']            
             elif p == 'df':
                 the_args['complete'] = task_params['complete']      
-        
-        if KIDS == "all":
-            kids = None 
-        kid = 'K000'
+            elif p == 'overwrite':
+                the_args['overwrite'] = task_params['overwrite']
+
+        if kids == None:
+            for k in h.data[type_data].keys():
+                if k.startswith('K'): 
+                    kid = k
+                    break
+        else:
+            kid = kids[0]
+            if isinstance(kid, int):
+                kid = 'K'+str(kid).zfill(3)
 
         if TEMPS == "all":
             tmps = list(h.data[type_data][kid].keys())
         else:
-            tmps = TEMPS
+
+            if h.data_type.lower() == 'dark':
+                t_type = 'D'
+                nzeros = 4
+            elif h.data_type.lower() == 'blackbody':
+                t_type = 'B'
+                nzeros = 3
+            
+            tmps = []
+            for t in temps:
+                if isinstance(t, int) or isinstance(t, float):
+                    tmps.append( t_type+str(t).zfill(nzeros) )
+
+            #tmps = TEMPS
 
         for temp in tmps:
             if ATTS == "all":
                 attens = list(h.data[type_data][kid][temp].keys())
             else:
-                attens = ATTS
+                attens = []            
+                for a in atts:
+                    if isinstance(a, int) or isinstance(a, float):
+                        attens.append( f'A{a:.1f}' )
 
             for atten in attens:
+                
                 if SAMPLES == "all":
                     samples = h.data[type_data][kid][temp][atten]['data'].keys()
                 else:
@@ -326,7 +356,49 @@ for s, step in enumerate(TASKS):
         if flag_plot_ts:
             try:
                 msg('Generating timestream plots...', 'ok')
-                h.plot_ts_summary(kids, temps, **plot_args)
+
+                kids = h._get_kids_to_sweep(kids, mode='ts')
+                tmps = []
+                for kid in kids:
+                    tps = h._get_temps_to_sweep(temps, kid, mode='ts')
+                    if len(tps) > len(tmps):
+                        tmps = tps 
+                
+                for tmp in tps:
+                    h.plot_ts_summary(kids, tmp, **plot_args)
+        
+                msg('Done', 'ok')
+            except Exception as e:
+                msg('Error building ts plots.\n'+str(e), 'fail')
+
+    # ---> Plot ts
+    elif task_name == "plot_ts":
+
+        the_args = {}
+        plot_args = {}
+        # Plot all the S21 for all the KIDs
+        for p in task_params.keys():
+            if p == 'ignore':
+                the_args['ignore'] = task_params['ignore']
+                plot_args['ignore'] = task_params['ignore']          
+            elif p == 'plot_atts':
+                plot_args['atten'] = task_params['plot_atts']
+            elif p == 'cmap':
+                plot_args['cmap'] = task_params['cmap']
+
+            try:
+                msg('Generating timestream plots...', 'ok')
+
+                kids = h._get_kids_to_sweep(kids, mode='ts')
+                tmps = []
+                for kid in kids:
+                    tps = h._get_temps_to_sweep(temps, kid, mode='ts')
+                    if len(tps) > len(tmps):
+                        tmps = tps 
+                
+                for tmp in tps:
+                    h.plot_ts_summary(kids, tmp, **plot_args)
+        
                 msg('Done', 'ok')
             except Exception as e:
                 msg('Error building ts plots.\n'+str(e), 'fail')

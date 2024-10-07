@@ -98,6 +98,8 @@ class Homodyne:
         work_dir = kwargs.pop('work_dir', './')
         # Load only VNA sweeps?
         only_vna = kwargs.pop('only_vna', False)
+        # Trim a fraction of the sample
+        w = kwargs.pop('w', 0.01) # 0.25
         # Overdriven power for each KID
         overdriven = kwargs.pop('overdriven', [])
         # Create project folder
@@ -129,20 +131,22 @@ class Homodyne:
         else:
             self.project_name = proj_name
 
-        if not load_saved:
+        if not diry is None:
+            
+            if not load_saved:
 
-            foldername = diry.split('/')[-2]
-            self.date, self.data_type, self.meas, self.sample = self._get_meas_char_from_foldername(foldername)
-            
-            # Loading data base
-            msg('Loading directory...', 'info')
-            self.data = self.load_data(diry, only_vna=only_vna, expected=expected)
-            msg('Done :)', 'ok')
-            
-        else:
-            data, diry, setup = self.load_proj(BACKUP_FILE)
-            self.data = data
-            self.date, self.data_type, self.meas, self.sample = setup
+                foldername = diry.split('/')[-2]
+                self.date, self.data_type, self.meas, self.sample = self._get_meas_char_from_foldername(foldername)
+                
+                # Loading data base
+                msg('Loading directory...', 'info')
+                self.data = self.load_data(diry, only_vna=only_vna, expected=expected, w=w)
+                msg('Done :)', 'ok')
+                
+            else:
+                data, diry, setup = self.load_proj(BACKUP_FILE)
+                self.data = data
+                self.date, self.data_type, self.meas, self.sample = setup
 
         self.data_diry = diry
 
@@ -315,19 +319,20 @@ class Homodyne:
                         elif vna_type == 'seg':
                             # Extract data by KID
                             # ------------------------------------------------
-                            n_kids = self._find_kids_segmented_vna(f, thresh=5e4, exp=expected)
+                            n_kids = self._find_kids_segmented_vna(f, thresh=1e4, exp=expected)
 
                             # Split data per KID
                             for kid in range(len(n_kids)-1):
                                 # Get detector
                                 from_idx = n_kids[kid]+1
                                 to_idx = n_kids[kid+1]
+
                                 # Get individual detector
                                 f_kid = f[from_idx:to_idx]
                                 s21_kid = s21[from_idx:to_idx]
 
-                                f_kid = f_kid[int(w*len(f_kid)):-int(w*len(f_kid))]
-                                s21_kid = s21_kid[int(w*len(s21_kid)):-int(w*len(s21_kid))]
+                                f_kid = f_kid[int(w*len(f_kid)):len(f_kid)-int(w*len(f_kid))]
+                                s21_kid = s21_kid[int(w*len(s21_kid)):len(s21_kid)-int(w*len(s21_kid))]
 
                                 str_kid = 'K'+str(kid).zfill(3)
 
@@ -424,6 +429,8 @@ class Homodyne:
         prefix = kwargs.pop('prefix', 'A')
         # Plot results
         plot_res = kwargs.pop('plot_res', True)
+        # Overwrite ?
+        overwrite = kwargs.pop('overwrite', False)
         # Verbose
         verbose = kwargs.pop('verbose', False)
         # ----------------------------------------------
@@ -435,9 +442,11 @@ class Homodyne:
 
             temps = self._get_temps_to_sweep(temp, kid)
             for temp in temps:
+                msg(temp, 'info')
 
                 attens = self._get_atten_to_sweep(atten, temp, kid)
                 for atten in attens:
+                    msg(atten, 'info')
                     msg('Fit '+kid, 'info')
 
                     flag_do_it = False
@@ -448,7 +457,7 @@ class Homodyne:
                     elif not sample in self.data['vna'][kid][temp][atten]['fit'].keys():
                         flag_do_it = True
 
-                    if flag_do_it:
+                    if flag_do_it or overwrite:
                         try:
                             f_vna, s21_vna = self.data['vna'][kid][temp][atten]['data'][sample]
 
@@ -466,7 +475,7 @@ class Homodyne:
                         print(kid+'-'+temp+'-'+atten+'-'+str(sample)+' done')
 
         for proc in jobs:
-        	proc.join()
+            proc.join()
             
         for k in fitRes.keys():
 
@@ -995,15 +1004,16 @@ class Homodyne:
 
                 # C R E A T E   T O N E S L I S T
                 # --------------------------------
+                sort_tones = np.sort(self.found_kids)
+
                 tonelist_name = 'Toneslist-'+self.project_name+'.txt'
                 with open(tonelist_name, 'w') as file:
                     file.write('Name\tFreq\tOffset att\tAll\tNone\n')
-                    for kid in range(len(self.found_kids)):
+                    for kid in range(len(sort_tones)):
                         kid_name = 'K'+str(kid).zfill(3)
-                        file.write(f'{kid_name}\t{self.found_kids[kid]:.0f}\t0\t1\t0\n')
+                        file.write(f'{kid_name}\t{sort_tones[kid]:.0f}\t0\t1\t0\n')
                 
                 msg('Tonelist file save as: '+tonelist_name, 'info')
-
                 msg('Changes saved!', 'info')
 
             elif event.key == 'u':
@@ -1308,6 +1318,7 @@ class Homodyne:
 
         S = np.zeros((tot_kids, tot_temps))
         pwrs = np.zeros((tot_kids, tot_temps))
+        tmps = np.zeros((tot_kids, tot_temps))
 
         base_f0 = 0
         
@@ -1460,6 +1471,7 @@ class Homodyne:
 
             try:
                 power = []
+                all_temps = [] 
                 for rt in real_temp:
                     print('***********************************************')
                     msg('Temperature[K]: '+str(rt), 'info')
@@ -1487,11 +1499,13 @@ class Homodyne:
                         msg('Nqp: '+str(Nqp), 'info')
 
                     elif temp_conv == 'temp':
-
                         msg('Temperature: '+str(temp_conv), 'info')
                         power.append(rt)
+                    
+                    all_temps.append(rt)
 
                 power = np.array(power)
+                all_temps = np.array(all_temps)
 
                 # Get the responsivity
                 # ------------------------------------------------------------------
@@ -1536,6 +1550,7 @@ class Homodyne:
                     S[k] = xs
 
                 pwrs[k] = power
+                tmps[k] = all_temps
 
             except Exception as e:
                 msg(str(e), 'warn')
@@ -1599,11 +1614,12 @@ class Homodyne:
 
         if plot_res:
             show()
-            fig.savefig(self.work_dir+self.project_name+'/fit_res_dict/responsivity/responsivity-'+self.data_type+'.png')
+            fig.savefig(self.work_dir+self.project_name+'/fit_res_dict/responsivity/responsivity-'+str(var)+'-'+temp_conv+'-'+self.data_type+'.png')
 
         # Save results
-        np.save(self.work_dir+self.project_name+'/fit_res_dict/responsivity/responsivity-'+self.data_type, S)
-        np.save(self.work_dir+self.project_name+'/fit_res_dict/responsivity/responsivity-powers-'+self.data_type, pwrs)
+        np.save(self.work_dir+self.project_name+'/fit_res_dict/responsivity/responsivity-'+str(var)+'-'+temp_conv+'-'+self.data_type, S)
+        np.save(self.work_dir+self.project_name+'/fit_res_dict/responsivity/responsivity-powers-'+str(var)+'-'+self.data_type, pwrs)
+        np.save(self.work_dir+self.project_name+'/fit_res_dict/responsivity/responsivity-temps-'+str(var)+'-'+self.data_type, temps)
 
     def get_phase_shift(self, f_idx, x, s21, f, f0_ref, f0_thresh=5e4, label='0.0'):
         """
@@ -2647,6 +2663,8 @@ class Homodyne:
             msg('No overdriven attenuations available', 'fail')
             return 
         else:
+            # G E N E R A T E   F I G U R E S
+            # -------------------------------
             for k, kid in enumerate(kids):
                 k2 = int(kid[1:])
                 tmp = self._get_temps_to_sweep(temp, kid, mode='ts')[0]
@@ -2679,6 +2697,8 @@ class Homodyne:
                 subplots_adjust(left=0.1, right=0.99, top=0.99, bottom=0.08, hspace=0.1, wspace=0.035)
                 figs_Q.append(fig_Q_high)
                 axs_Q.append(ax_Q_high)
+
+            # -------------------------------
 
             fig_name = ""
             norm_color = matplotlib.colors.Normalize(vmin=0, vmax=len(kids))
@@ -2843,17 +2863,26 @@ class Homodyne:
 
             # Save figures
             fig_name = fig_name[:-1]
-            fig_I_low.savefig(self.work_dir+self.project_name+'/fit_psd_results/I_low-ts-'+fig_name+'.png')
+            kids_name = ""
+                        
+            for k in kids:
+                kids_name += k + "-"
+            self._create_diry(self.work_dir+self.project_name+'/fit_psd_results/'+kids_name+tmp+'-'+att)
+
+            ioff()
+            fig_I_low.savefig(self.work_dir+self.project_name+'/fit_psd_results/'+kids_name+tmp+'-'+att+'/I_low-ts-'+fig_name+'.png')
             close(fig_I_low)
-            fig_Q_low.savefig(self.work_dir+self.project_name+'/fit_psd_results/Q_low-ts-'+fig_name+'.png')
+            fig_Q_low.savefig(self.work_dir+self.project_name+'/fit_psd_results/'+kids_name+tmp+'-'+att+'/Q_low-ts-'+fig_name+'.png')
             close(fig_Q_low)
 
             # Save figures
             for c in range(len(figs_I)):
-                figs_I[c].savefig(self.work_dir+self.project_name+'/fit_psd_results/I_high-ts-'+fig_name+'-'+str(c)+'.png')
+                figs_I[c].savefig(self.work_dir+self.project_name+'/fit_psd_results/'+kids_name+tmp+'-'+att+'/I_high-ts-'+fig_name+'-'+str(c)+'.png')
                 close(figs_I[c])
-                figs_Q[c].savefig(self.work_dir+self.project_name+'/fit_psd_results/Q_high-ts-'+fig_name+'-'+str(c)+'.png')
+                figs_Q[c].savefig(self.work_dir+self.project_name+'/fit_psd_results/'+kids_name+tmp+'-'+att+'/Q_high-ts-'+fig_name+'-'+str(c)+'.png')
                 close(figs_Q[c])
+
+            close('all')
 
     def plot_all_s21_kids(self, kid, temp, atten, sample=0, over_attens=True, data_source='vna', cmap='jet', fig_name=None):
         """
