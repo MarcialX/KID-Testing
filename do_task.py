@@ -95,10 +95,10 @@ add_in_atten = gral_params['IN_ADD_ATT']
 add_out_atten = gral_params['OUT_ADD_ATT']
 
 MATERIAL = gral_params['MATERIAL']
-try:
-    DIMENSIONS = gral_params['DIMENSIONS']
-except:
-    DIMENSIONS = [1,1,1]
+#try:
+#    DIMENSIONS = gral_params['DIMENSIONS']
+#except:
+#    DIMENSIONS = [1,1,1]
 
 try:
     TRIM_FRACTION = gral_params['TRIM_EDGES']
@@ -115,7 +115,7 @@ else:
 
 h = Homodyne(used_project, work_dir=project_path, proj_name=project_name, load_saved=LOAD_PROJ, 
             overdriven=atts_overdriven, add_in_atten=add_in_atten, add_out_atten=add_out_atten,
-            material=MATERIAL, dims=DIMENSIONS, w=TRIM_FRACTION)
+            material=MATERIAL, w=TRIM_FRACTION)
 
 TASKS = tasks_data['TASKS']
 
@@ -230,7 +230,7 @@ for s, step in enumerate(TASKS):
             
         if xls_report:
             try:
-                h.vna_xls_report()
+                h.vna_xls_report(kids=kids)
             except Exception as e:
                 msg('No possible to build the report.\n'+str(e), 'fail')
 
@@ -467,13 +467,15 @@ for s, step in enumerate(TASKS):
                 the_args['smooth'] = task_params['smooth']
             elif p == 'smooth_params':
                 the_args['smooth_params'] = task_params['smooth_params']
+            elif p == 'nqp_fit_pts':
+                the_args['nqp_fit_pts'] = task_params['nqp_fit_pts']
 
-        try:
-            msg('Generating the responsivity...', 'ok')
-            h.get_responsivity(kids, **the_args)
-            msg('Done', 'ok')
-        except Exception as e:
-            msg('Error calculating the responsivity.\n'+str(e), 'fail')
+        #try:
+        msg('Generating the responsivity...', 'ok')
+        h.get_responsivity(kids, **the_args)
+        msg('Done', 'ok')
+        #except Exception as e:
+        #    msg('Error calculating the responsivity.\n'+str(e), 'fail')
 
     # ---> Get NEP
     elif task_name == "NEP":

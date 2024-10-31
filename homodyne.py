@@ -115,7 +115,7 @@ class Homodyne:
         # Material
         material = kwargs.pop('material', 'Al')
         # Absorber dimensions
-        dims = kwargs.pop('dims', [1,1,1])
+        #dims = kwargs.pop('dims', [1,1,1])
         # ----------------------------------------------
 
         # Create a directory for the project
@@ -176,7 +176,7 @@ class Homodyne:
 
         # Material properties
         self.material = material
-        self.dims = dims
+        #self.dims = dims
         self.Delta = 1
 
         self.od_cols = 5
@@ -1293,13 +1293,13 @@ class Homodyne:
 
         ioff()
 
+        #print('-------------->', nqp_fit_pts)
+
         if from_fit == False and method == 'min':
             if var != 'fr':
                 msg("Only var = 'fr' is valid under these conditions", "fail")
                 return
 
-        # Get total volume
-        V = float(self.dims[0])*float(self.dims[1])*float(self.dims[2]) 
         # Select the pre-overdriven attenuation.
         atten = self.overdriven
 
@@ -1339,29 +1339,137 @@ class Homodyne:
             xs = np.zeros_like(temps, dtype=float)
             real_temp = np.zeros_like(temps, dtype=float)
 
+            # T O T A L   V O L U M E
+            # ----------------------------
+            if isinstance(self.dims, dict):
+                dims_list = self.dims[kid]
+            elif isinstance(self.dims, list):
+                dims_list = self.dims
+
+            print('D I M E N S I O N S')
+            print(kid)
+            print(dims_list)
+            print('-------------------')
+
+            V = float(dims_list[0])*float(dims_list[1])*float(dims_list[2]) 
+
+            # -----------------------------
+
             for t, tm in enumerate(temps):
                 att = self._get_atten_to_sweep(atten[k], tm, kid)[0]
                 try:
-                    # F I T
-                    # -------------
-                    if from_fit:
 
-                        if data_source == 'vna':
-                            
-                            f, s21 = self.data['vna'][kid][tm][att]['data'][sample]
+                    if False: #kid == 'K006' and tm in ['D0230']:    
+                        #not tm in self.data['vna'][kid]
+                        xs[t] = np.nan
+                    
+                    else:
 
-                            if (not 'fit' in self.data['vna'][kid][tm][att]) or kid in flag_kid:
+                        # F I T
+                        # -------------
+                        if from_fit:
+
+                            if data_source == 'vna':
                                 
-                                if var in ['fr', 'phase']:
-                                    msg(kid+'-'+tm+'-'+att+'. Fit data not available, using the min criteria.', 'info')
+                                f, s21 = self.data['vna'][kid][tm][att]['data'][sample]
+
+                                if (not 'fit' in self.data['vna'][kid][tm][att]) or kid in flag_kid:
                                     
+                                    if var in ['fr', 'phase']:
+                                        msg(kid+'-'+tm+'-'+att+'. Fit data not available, using the min criteria.', 'info')
+                                        
+                                        s21_mag = 20*np.log10(np.abs(s21))
+
+                                        if smooth:
+                                            s21_mag = savgol_filter(s21_mag, *smooth_params)
+                                        
+                                        f_idx = np.argmin(s21_mag)
+                                        x = f[f_idx]
+
+                                        if var == 'phase':
+                                            # Get f0 at base temperature
+                                            if base_f0 == 0:
+                                                base_f0 = np.copy(x)
+
+                                            f0_ref = base_f0
+
+                                            figure('IQ_derot-vs-F0', figsize=(16,12))
+                                            x = self.get_phase_shift(f_idx, x, s21, f, f0_ref, f0_thresh=5e4, label=tm)
+
+                                    else:
+                                        x = None
+                                        
+                                else:
+                                
+                                    if var == 'phase':
+                                        x = self.data['vna'][kid][tm][att]['fit']['fr']
+                                        f_idx = np.where(f>=x)[0][0]
+                                        
+                                        # Get f0 at base temperature
+                                        if base_f0 == 0:
+                                            base_f0 = np.copy(x)
+
+                                        f0_ref = base_f0
+
+                                        figure('IQ_derot-vs-F0', figsize=(16,12))
+                                        x = self.get_phase_shift(f_idx, x, s21, f, f0_ref, f0_thresh=5e4, label=tm)
+
+                                    else:
+                                        x = self.data['vna'][kid][tm][att]['fit'][var]
+
+                                    print('Taken from the fit')
+
+                            elif data_source == 'homo':
+
+                                if var in ['fr', 'phase']:
+
+                                    if var == 'phase':
+
+                                        f = self.data['ts'][kid][tm][att]['f']
+                                        s21 = self.data['ts'][kid][tm][att]['s21']
+                                        
+                                        x = self.data['ts'][kid][tm][att]['fit']['fr']
+                                        f_idx = np.where(f>=x)[0][0]
+                                        
+                                        # Get f0 at base temperature
+                                        if base_f0 == 0:
+                                            base_f0 = np.copy(x)
+
+                                        f0_ref = base_f0
+                                        
+                                        figure('IQ_derot-vs-F0', figsize=(16,12))
+                                        x = self.get_phase_shift(f_idx, x, s21, f, f0_ref, f0_thresh=5e4, label=tm)
+
+                                    else:
+                                        x = self.data['ts'][kid][tm][att]['fit'][var]
+
+                                else:
+                                    x = self.data['ts'][kid][tm][att]['fit_psd']['params'][var]
+
+                        # N O    F I T
+                        # -------------
+                        else:
+                            if var in ['fr', 'phase']:
+
+                                if method == 'min':
+
+                                    f, s21 = self.data['vna'][kid][tm][att]['data'][sample]
                                     s21_mag = 20*np.log10(np.abs(s21))
 
                                     if smooth:
+                                        figure('s21')
+                                        plot(f, 20*np.log10(np.abs(s21)))
+                                        #if kid in ['K000', 'K001', 'K002', 'K003', 'K004', 'K005', 'K006']:
+                                        #    s21_mag = savgol_filter(s21_mag, 31, 3)
+                                        #else:
+                                        #    s21_mag = savgol_filter(s21_mag, *smooth_params)
+
                                         s21_mag = savgol_filter(s21_mag, *smooth_params)
+                                        plot(f, s21_mag, 'k--')
                                     
                                     f_idx = np.argmin(s21_mag)
                                     x = f[f_idx]
+                                    #axvline(x, color='r')
 
                                     if var == 'phase':
                                         # Get f0 at base temperature
@@ -1373,97 +1481,15 @@ class Homodyne:
                                         figure('IQ_derot-vs-F0', figsize=(16,12))
                                         x = self.get_phase_shift(f_idx, x, s21, f, f0_ref, f0_thresh=5e4, label=tm)
 
-                                else:
-                                    x = None
-                                    
-                            else:
-                               
-                                if var == 'phase':
-                                    x = self.data['vna'][kid][tm][att]['fit']['fr']
-                                    f_idx = np.where(f>=x)[0][0]
-                                    
-                                    # Get f0 at base temperature
-                                    if base_f0 == 0:
-                                        base_f0 = np.copy(x)
-
-                                    f0_ref = base_f0
-
-                                    figure('IQ_derot-vs-F0', figsize=(16,12))
-                                    x = self.get_phase_shift(f_idx, x, s21, f, f0_ref, f0_thresh=5e4, label=tm)
-
-                                else:
-                                    x = self.data['vna'][kid][tm][att]['fit'][var]
-
-                                print('Taken from the fit')
-
-                        elif data_source == 'homo':
-
-                            if var in ['fr', 'phase']:
-
-                                if var == 'phase':
-
-                                    f = self.data['ts'][kid][tm][att]['f']
-                                    s21 = self.data['ts'][kid][tm][att]['s21']
-                                    
-                                    x = self.data['ts'][kid][tm][att]['fit']['fr']
-                                    f_idx = np.where(f>=x)[0][0]
-                                    
-                                    # Get f0 at base temperature
-                                    if base_f0 == 0:
-                                        base_f0 = np.copy(x)
-
-                                    f0_ref = base_f0
-                                    
-                                    figure('IQ_derot-vs-F0', figsize=(16,12))
-                                    x = self.get_phase_shift(f_idx, x, s21, f, f0_ref, f0_thresh=5e4, label=tm)
-
-                                else:
-                                    x = self.data['ts'][kid][tm][att]['fit'][var]
-
-                            else:
-                                x = self.data['ts'][kid][tm][att]['fit_psd']['params'][var]
-
-                    # N O    F I T
-                    # -------------
-                    else:
-                        if var in ['fr', 'phase']:
-
-                            if method == 'min':
-
-                                f, s21 = self.data['vna'][kid][tm][att]['data'][sample]
-                                s21_mag = 20*np.log10(np.abs(s21))
-
-                                if smooth:
-                                    figure('s21')
-                                    plot(f, 20*np.log10(np.abs(s21)))
-                                    #if kid in ['K000', 'K001', 'K002', 'K003', 'K004', 'K005', 'K006']:
-                                    #    s21_mag = savgol_filter(s21_mag, 31, 3)
-                                    #else:
-                                    #    s21_mag = savgol_filter(s21_mag, *smooth_params)
-
-                                    s21_mag = savgol_filter(s21_mag, *smooth_params)
-                                    plot(f, s21_mag, 'k--')
-                                
-                                f_idx = np.argmin(s21_mag)
-                                x = f[f_idx]
-                                #axvline(x, color='r')
-
-                                if var == 'phase':
-                                    # Get f0 at base temperature
-                                    if base_f0 == 0:
-                                        base_f0 = np.copy(x)
-
-                                    f0_ref = base_f0
-
-                                    figure('IQ_derot-vs-F0', figsize=(16,12))
-                                    x = self.get_phase_shift(f_idx, x, s21, f, f0_ref, f0_thresh=5e4, label=tm)
-
-                    xs[t] = x
-
+                        xs[t] = x
+                
                 except Exception as e:
                     msg('Reading responsivity variable.\n'+str(e), 'warn')
 
-                real_temp[t] = float(self.data['vna'][kid][tm][att]['header'][0][temp_field])
+                try:
+                    real_temp[t] = float(self.data['vna'][kid][tm][att]['header'][0][temp_field])
+                except:
+                    real_temp[t] = np.nan
 
             if var == 'phase':
                 savefig(self.work_dir+self.project_name+'/fit_res_dict/responsivity/derotated-IQ-F0.png')
@@ -1537,11 +1563,11 @@ class Homodyne:
 
                     dF0_dNqp, b = np.polyfit(power[nqp_fit_pts:], xs[nqp_fit_pts:], 1)
                     
-                    """
+                    
                     Nqps_fit = np.linspace(power[0], power[-1], 1000)
                     plot(power, xs, 'rs-')
                     plot(Nqps_fit, Nqps_fit*dF0_dNqp + b, 'k')
-                    """
+                    
                     
                     S[k] = dF0_dNqp
 
@@ -1595,13 +1621,25 @@ class Homodyne:
                     else:
                         ks = 1
 
+                    nw_power = []
+                    nw_xs_plot = []
+                    for c in range(len(xs_plot)):
+                        if not np.isnan(xs_plot[c]):
+                            nw_xs_plot.append(xs_plot[c])
+                            nw_power.append(power[c])
+                        else:
+                            print('NAN!')
+
+                    nw_xs_plot = np.array(nw_xs_plot)
+                    nw_power = np.array(nw_power)
+
                     if not custom is None:
                         color = custom[0][k]
                         mk = custom[1][k]
                         lsty = custom[2][k] 
-                        ax.plot(power, ks*xs_plot, label=kid, linestyle=lsty, marker=mk, color=color)
+                        ax.plot(nw_power, ks*nw_xs_plot, label=kid, linestyle=lsty, marker=mk, color=color)
                     else:                      
-                        ax.plot(power, ks*xs_plot, label=kid, linestyle=lstyle[lstyle_pointer], marker=lmarker[lstyle_pointer])
+                        ax.plot(nw_power, ks*nw_xs_plot, label=kid, linestyle=lstyle[lstyle_pointer], marker=lmarker[lstyle_pointer])
 
                     if temp_conv == 'power':
                         ax.set_xlabel('Power [W]', fontsize=18, weight='bold')
@@ -1619,7 +1657,8 @@ class Homodyne:
         # Save results
         np.save(self.work_dir+self.project_name+'/fit_res_dict/responsivity/responsivity-'+str(var)+'-'+temp_conv+'-'+self.data_type, S)
         np.save(self.work_dir+self.project_name+'/fit_res_dict/responsivity/responsivity-powers-'+str(var)+'-'+self.data_type, pwrs)
-        np.save(self.work_dir+self.project_name+'/fit_res_dict/responsivity/responsivity-temps-'+str(var)+'-'+self.data_type, temps)
+        np.save(self.work_dir+self.project_name+'/fit_res_dict/responsivity/responsivity-temps-'+str(var)+'-'+self.data_type, tmps)
+
 
     def get_phase_shift(self, f_idx, x, s21, f, f0_ref, f0_thresh=5e4, label='0.0'):
         """
@@ -1674,8 +1713,9 @@ class Homodyne:
         kids = self._get_kids_to_sweep(kid, mode='ts')
 
         # Get responsivity
-        S = np.load(self.work_dir+self.project_name+'/fit_res_dict/responsivity/responsivity-'+self.data_type+'.npy')
-        pwrs = np.load(self.work_dir+self.project_name+'/fit_res_dict/responsivity/responsivity-powers-'+self.data_type+'.npy')
+        # NOTE. The filenames have to chance.
+        S = np.load(self.work_dir+self.project_name+'/fit_res_dict/responsivity/responsivity-fr-Nqp-'+self.data_type+'.npy')
+        pwrs = np.load(self.work_dir+self.project_name+'/fit_res_dict/responsivity/responsivity-powers-fr-'+self.data_type+'.npy')
 
         ioff()
         #fig_nep_kids, ax_nep_kids = subplots(1, 1, figsize=(20,12))
@@ -1805,8 +1845,13 @@ class Homodyne:
 
         if self.data_type.lower() == 'dark':
             self.Delta = get_Delta(Tcs[self.material])
+            #tqp = tqp/2
             NEP = np.sqrt(psd) * (( (eta*tqp/self.Delta)*(np.abs(S)) )**(-1)) * np.sqrt(1 + (2*np.pi*f*tqp)**2 ) * np.sqrt(1 + (2*np.pi*f*Qr/np.pi/f0)**2)
             NEP_no_corr = np.sqrt(psd) * (( (eta*tqp/self.Delta)*(np.abs(S)) )**(-1))
+            print('Checking dark NEP')
+            print('------------------')
+            print(f'tqp [us]: {1e6*tqp:.3f}')
+            print(f'Responsivity: {S:.2f}')
 
         elif self.data_type.lower() == 'blackbody':
             NEP = np.sqrt(psd) * ( (np.abs(S))**(-1)) * np.sqrt(1 + (2*np.pi*f*tqp)**2 ) * np.sqrt(1 + (2*np.pi*f*Qr/np.pi/f0)**2)
@@ -1906,7 +1951,7 @@ class Homodyne:
         # S A V E   P S D   O N - O F F
         # -----------------------------
         # Get PSD ON - OFF
-        psd_mix = psd_on - psd_off
+        psd_mix = psd_on# - psd_off
         f_clean = f_on[psd_mix>0]
         psd_clean = psd_mix[psd_mix>0]
 
@@ -2256,7 +2301,7 @@ class Homodyne:
             except Exception as e:
                 print('PSD fit. Fail loading '+f+'\n'+str(e))
 
-    def vna_xls_report(self, name=None):
+    def vna_xls_report(self, name=None, kids=None):
         """
         Create the report of results from the VNA measurements.
         Parameters
@@ -2273,8 +2318,10 @@ class Homodyne:
 
         bold = workbook.add_format({'bold': True})
 
-        kids = self._get_kids_to_sweep(None, mode='vna')
+        kids = self._get_kids_to_sweep(kids, mode='vna')
         temps = self._get_temps_to_sweep(None, kids[0], mode='vna')
+
+        # It should be only the defined temperatures.
 
         for t, temp in enumerate(temps):
             worksheet = workbook.add_worksheet(temp)
@@ -2287,6 +2334,7 @@ class Homodyne:
                 worksheet.write(1, 3*block+2, 'Qc', bold)
                 worksheet.write(1, 3*block+3, 'Qr', bold)
                 worksheet.merge_range(0, 3*block+1, 0, 3*block+3, kid, bold)
+                print(temp, kid)
                 attens = self._get_atten_to_sweep(None, temp, kid, mode='vna')
 
                 if k == 0:
@@ -2315,7 +2363,10 @@ class Homodyne:
                     col += 1
 
                 att_num = [float(a[1:]) for a in attens]
-                from_cal = np.where(np.array(att_num)>=self.overdriven[k])[0][0]
+                try:
+                    from_cal = np.where(np.array(att_num)>=self.overdriven[k])[0][0]
+                except:
+                    from_cal = 0
 
                 qi_col = xlsxwriter.utility.xl_col_to_name(3*block+1)
                 worksheet.write_formula(len(attens)+3, 3*block+1, '=MIN('+qi_col+str(3+from_cal)+':'+qi_col+str(3+len(attens)-1)+')')
@@ -2464,14 +2515,16 @@ class Homodyne:
 
                                     # Get the attenuations
                                     extra_att = self.data['vna'][kid][tmp][att]['header'][0]['ATT_UC'] + \
-                                                self.data['vna'][kid][tmp][att]['header'][0]['ATT_C'] + \
-                                                self.data['vna'][kid][tmp][att]['header'][0]['ATT_RT']
+                                                self.data['vna'][kid][tmp][att]['header'][0]['ATT_C']
+                                                #self.data['vna'][kid][tmp][att]['header'][0]['ATT_RT']
+                                                # This should be commented just for RV2-Chip 2
 
                                     #print(self.data['vna'][kid][tmp][att]['header'][0]['ATT_UC'])
                                     #print(self.data['vna'][kid][tmp][att]['header'][0]['ATT_C'])
                                     #print(self.data['vna'][kid][tmp][att]['header'][0]['ATT_RT'])
 
-                                    atts_num.append(-1*(float(att[1:])+extra_att+self.add_in_atten) )
+                                    vna_pwr = self.data['vna'][kid][tmp][att]['header'][0]['VNAPOWER']
+                                    atts_num.append(-1*(float(att[1:])+extra_att+self.add_in_atten)+vna_pwr )
 
                                     # Get Qs errors
                                     qi_err.append(self.data['vna'][kid][tmp][att]['fit']['Qi_err'])
@@ -2592,20 +2645,20 @@ class Homodyne:
 
             if j == x-1:
                 if len(n_temps) == 1:
-                    ax_qi.set_xlabel('Drive power [dB]', fontsize=18, weight='bold')
-                    ax_qc.set_xlabel('Drive power [dB]', fontsize=18, weight='bold')
-                    ax_qr.set_xlabel('Drive power [dB]', fontsize=18, weight='bold')
+                    ax_qi.set_xlabel('Drive power [dBm]', fontsize=18, weight='bold')
+                    ax_qc.set_xlabel('Drive power [dBm]', fontsize=18, weight='bold')
+                    ax_qr.set_xlabel('Drive power [dBm]', fontsize=18, weight='bold')
 
                 else:
 
                     if x == 1:
-                        ax_qi[i].set_xlabel('Drive power [dB]', fontsize=18, weight='bold')
-                        ax_qc[i].set_xlabel('Drive power [dB]', fontsize=18, weight='bold')
-                        ax_qr[i].set_xlabel('Drive power [dB]', fontsize=18, weight='bold')
+                        ax_qi[i].set_xlabel('Drive power [dBm]', fontsize=18, weight='bold')
+                        ax_qc[i].set_xlabel('Drive power [dBm]', fontsize=18, weight='bold')
+                        ax_qr[i].set_xlabel('Drive power [dBm]', fontsize=18, weight='bold')
                     else:
-                        ax_qi[j, i].set_xlabel('Drive power [dB]', fontsize=18, weight='bold')
-                        ax_qc[j, i].set_xlabel('Drive power [dB]', fontsize=18, weight='bold')
-                        ax_qr[j, i].set_xlabel('Drive power [dB]', fontsize=18, weight='bold')
+                        ax_qi[j, i].set_xlabel('Drive power [dBm]', fontsize=18, weight='bold')
+                        ax_qc[j, i].set_xlabel('Drive power [dBm]', fontsize=18, weight='bold')
+                        ax_qr[j, i].set_xlabel('Drive power [dBm]', fontsize=18, weight='bold')
 
                 if t == len(n_temps)-1:
                     if len(n_temps) == 1:

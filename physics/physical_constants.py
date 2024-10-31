@@ -38,5 +38,6 @@ N0s = {
 # Tc [K]
 Tcs = {
         'Al'    : 1.3,
-        'AlTiAl': 0.85
+        'AlTiAl': 0.85,
+        'TiN'   : 3.816 # Fb-Sp-TiN 35
 }

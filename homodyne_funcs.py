@@ -130,12 +130,13 @@ def fit_mix_psd(f, psd_mix, f0, Qr, trim_range=[0.2, 9e4], plot_name="", n_pts=5
         print('---------------------')
         msg(f'Qr: {Qr:.0f}', 'info')
         msg(f'f0: {f0:.0f} Hz', 'info')
-        #msg(f'amp [not used]: {amp_noise:.3f} [Hz^2/Hz]', 'info')
+        amp_noise = np.median(psd_mix[-20:-5])
+        msg(f'amp [not used]: {amp_noise:.3f} [Hz^2/Hz]', 'info')
 
         # P E R F O R M   T H E   F I T
         # -----------------------------
         ioff()
-        fit_psd_obj.apply_psd_fit(fm, psd_trim, f0, Qr, inter=inter)
+        fit_psd_obj.apply_psd_fit(fm, psd_trim, f0, Qr, amp_noise, inter=inter)
         ion()
 
         # F I T    R E S U L T S

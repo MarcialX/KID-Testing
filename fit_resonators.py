@@ -226,12 +226,12 @@ def coarse_fit(f, data, **kwargs):
     phi = theta_0 - arg_zc
 
     """
-    if Qc > 2e5:
-        Qc = 20e3
-        Qr = 2e3
+    if Qc > 1e6:
+        Qc = 200e3
+        Qr = 10e3
         phi = 0
     """
-        
+         
     return ar, ai, Qr, fr, Qc, phi
 
 
@@ -285,16 +285,12 @@ def fit_resonator(f, s21, n=3.5, **kwargs):
     else:
         to_idx = np.where(f>=to_idx)[0][0]
 
-    """
-    # Please comment this
+    print('++++++++++++++++++++')
     print(from_idx, to_idx)
-    from_idx = 0
-    to_idx = -1
-    """
 
     guess = res_model.guess(f[from_idx:to_idx], s21[from_idx:to_idx])
 
-    guess_s21 = res_model.eval(params=guess, f=f)
+    #guess_s21 = res_model.eval(params=guess, f=f)
 
     result = res_model.fit(s21[from_idx:to_idx], params=guess, f=f[from_idx:to_idx])
     fit_s21 = res_model.eval(params=result.params, f=f)
