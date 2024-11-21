@@ -277,12 +277,12 @@ for s, step in enumerate(TASKS):
                     elif p == 'ignore':
                         the_args['ignore'] = plot_params['ignore']
 
-                try:
-                    msg('Generating Qs vs drive power plots...', 'ok')
-                    h.plot_qs_vs_drive_power(kids, temps, atts, **the_args)
-                    msg('Done', 'ok')
-                except Exception as e:
-                    msg('Error building qs vs drive power plot.\n'+str(e), 'fail')
+                #try:
+                msg('Generating Qs vs drive power plots...', 'ok')
+                h.plot_qs_vs_drive_power(kids, temps, atts, **the_args)
+                msg('Done', 'ok')
+                #except Exception as e:
+                #    msg('Error building qs vs drive power plot.\n'+str(e), 'fail')
 
             elif name == 's21':
                 # Plot all the S21 for all the KIDs
@@ -321,6 +321,28 @@ for s, step in enumerate(TASKS):
                     msg('Done', 'ok')
                 except Exception as e:
                     msg('Error building S21 per KID plots.\n'+str(e), 'fail')
+
+
+    elif task_name == "dip-depths":
+
+        flag_plot_ts = False
+        the_args = {}
+        # Plot all the S21 for all the KIDs
+        for p in task_params.keys():
+            if p == 'sample':
+                the_args['sample'] = task_params['sample']
+            elif p == 'over_attens':
+                the_args['over_attens'] = task_params['over_attens']
+            elif p == 'cmap':
+                the_args['cmap'] = task_params['cmap']
+
+        #try:
+        msg('Plotting dip-depths...', 'ok')
+        h.plot_dip_depths(kids, temps, atts, **the_args)
+        msg('Done', 'ok')
+        #except:
+        #   msg('Error plotting dip-depths', 'fail')
+
 
     # ---> Apply despinking 
     elif task_name == "despike":

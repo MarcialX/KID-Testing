@@ -94,6 +94,32 @@ def get_psd(df, fs, method='mean'):
 
     return freqs[2:], total_psd[2:]
 
+def find_kids_segmented_vna(f, thresh=1e4, exp=None):
+    """
+    Find the KIDs in the segmented VNA.
+    Parameters
+    ----------
+    f : array
+        Frequency array.
+    thresh[opt] : float
+        KID detection threshold.
+    ----------
+    """
+
+    if exp != None:
+        segs = np.reshape(np.arange(len(f)), (exp, int(len(f)/exp)))
+        n_kids = np.zeros(exp, dtype=int)
+        for i in range(exp):
+            n_kids[i] = segs[i][0]
+        n_kids = n_kids[1:]
+    else:
+        # Number of KIDs
+        n_kids = np.where( np.abs(np.diff(f)) > thresh )[0]
+
+    n_kids = np.concatenate(([0], n_kids, [-1]))
+
+    return n_kids
+
 def fit_mix_psd(f, psd_mix, f0, Qr, trim_range=[0.2, 9e4], plot_name="", n_pts=500, inter=True, smooth_params=[21, 3]):
     """
     Get the pixed PSD.

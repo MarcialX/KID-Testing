@@ -207,7 +207,7 @@ class Homodyne:
         directories = next(walk(path), (None, None, []))[1]
 
         if directories is None:
-            print ('Directory doesn0t exist')
+            print ('Directory doesnt exist')
             return -1
 
         elif len(directories) == 0:
@@ -319,7 +319,7 @@ class Homodyne:
                         elif vna_type == 'seg':
                             # Extract data by KID
                             # ------------------------------------------------
-                            n_kids = self._find_kids_segmented_vna(f, thresh=1e4, exp=expected)
+                            n_kids = find_kids_segmented_vna(f, thresh=1e4, exp=expected)
 
                             # Split data per KID
                             for kid in range(len(n_kids)-1):
@@ -1359,8 +1359,7 @@ class Homodyne:
                 att = self._get_atten_to_sweep(atten[k], tm, kid)[0]
                 try:
 
-                    if False: #kid == 'K006' and tm in ['D0230']:    
-                        #not tm in self.data['vna'][kid]
+                    if kid in ['K102', 'K105', 'K110']:    
                         xs[t] = np.nan
                     
                     else:
@@ -1382,7 +1381,7 @@ class Homodyne:
 
                                         if smooth:
                                             s21_mag = savgol_filter(s21_mag, *smooth_params)
-                                        
+
                                         f_idx = np.argmin(s21_mag)
                                         x = f[f_idx]
 
@@ -1463,9 +1462,14 @@ class Homodyne:
                                         #    s21_mag = savgol_filter(s21_mag, 31, 3)
                                         #else:
                                         #    s21_mag = savgol_filter(s21_mag, *smooth_params)
+                                        
+                                        I_sm = savgol_filter(s21.real, *smooth_params)
+                                        Q_sm = savgol_filter(s21.imag, *smooth_params)
 
-                                        s21_mag = savgol_filter(s21_mag, *smooth_params)
-                                        plot(f, s21_mag, 'k--')
+                                        #s21_mag = savgol_filter(s21_mag, *smooth_params)
+                                        
+                                        s21_mag = np.sqrt(I_sm**2 + Q_sm**2)
+                                        plot(f, 20*np.log10(s21_mag), 'k--')
                                     
                                     f_idx = np.argmin(s21_mag)
                                     x = f[f_idx]
@@ -1562,7 +1566,6 @@ class Homodyne:
                 elif temp_conv == 'Nqp':
 
                     dF0_dNqp, b = np.polyfit(power[nqp_fit_pts:], xs[nqp_fit_pts:], 1)
-                    
                     
                     Nqps_fit = np.linspace(power[0], power[-1], 1000)
                     plot(power, xs, 'rs-')
@@ -2327,6 +2330,7 @@ class Homodyne:
             worksheet = workbook.add_worksheet(temp)
             block = 0
 
+            f0s_max, qis_max, qcs_max = [], [], []
             for k, kid in enumerate(kids):
                 col = 0
                 worksheet.write(1, 3*block+1, 'Qi', bold)
@@ -2345,22 +2349,47 @@ class Homodyne:
                     worksheet.write(len(attens)+6, 0, 'Median: ', bold)
                     worksheet.write(len(attens)+7, 0, 'Stdev: ', bold)
 
+                f0s, qis, qcs = [], [], []
                 for atten in attens:
                     if k == 0:
                         worksheet.write(1, 0, 'Att[dB]', bold)
                         worksheet.write(col+2, 0, atten, bold)
 
                     try:
+                        f0 = self.data['vna'][kid][temp][atten]['fit']['fr']
+
                         qi = self.data['vna'][kid][temp][atten]['fit']['Qi']
                         worksheet.write(col+2, 3*block+1, qi)
                         qc = self.data['vna'][kid][temp][atten]['fit']['Qc']
                         worksheet.write(col+2, 3*block+2, qc)
                         qr = self.data['vna'][kid][temp][atten]['fit']['Qr']
                         worksheet.write(col+2, 3*block+3, qr)
+
+                        if float(atten[1:]) >= self.overdriven[k]:
+                            print(atten[1:], self.overdriven[k])
+                            f0s.append(f0)
+                            qis.append(qi)
+                            qcs.append(qc)
+
                     except Exception as e:
                         print(e)
 
                     col += 1
+
+                try:
+                    print(kid)
+                    print(qis)
+                    id_max_qi = np.argmax(qis)
+                    f0s_max.append(f0s[id_max_qi])
+                    qis_max.append(qis[id_max_qi])
+                    qcs_max.append(qcs[id_max_qi])
+
+                    print(qis_max)
+
+                except:
+                    f0s_max.append(f0)
+                    qis_max.append(-1)
+                    qcs_max.append(-1)
 
                 att_num = [float(a[1:]) for a in attens]
                 try:
@@ -2397,6 +2426,8 @@ class Homodyne:
 
                 block += 1
 
+            np.save(self.work_dir+self.project_name+'/summary', [f0s_max, qis_max, qcs_max])
+
             kid_cells = np.arange(0, 3*len(kids), 3)
             qi_max_str = ''
             qc_max_str = ''
@@ -2429,8 +2460,213 @@ class Homodyne:
 
         workbook.close()
 
+
     # S O M E   U S E F U L   P L O T S
     # --------------------------------------------------------------------------
+    def plot_dip_depths(self, kid=None, temp=None, atten=None, sample=0, cmap='jet', *args, **kwargs):
+        """
+        Create dip depths plot.
+        Let's start with CPW
+        Parameters
+        ----------
+        ----------
+        """
+
+        # Key arguments
+        # ----------------------------------------------
+        # Baseline limits
+        baseline_lims = kwargs.pop('baseline_lims', (50, 50))
+        # ----------------------------------------------
+
+        kids = self._get_kids_to_sweep(kid)
+
+        temporal_temps = []
+        join_temps = []
+        for kid in kids:
+            join_temps.append(self._get_temps_to_sweep(temp, kid, mode='vna'))
+            temporal_temps.append(len(self._get_temps_to_sweep(temp, kid, mode='vna')))
+
+        n_temps = join_temps[np.argmax(temporal_temps)]
+
+        xg = int(np.sqrt(len(n_temps)))
+        yg = int(np.ceil(len(n_temps)/xg))
+
+        ioff()
+        fig_axm, axm = subplots(xg, yg, sharey=True, sharex=True, figsize=(20,12))
+        subplots_adjust(left=0.06, right=0.99, top=0.97, bottom=0.07, hspace=0.0, wspace=0.0)
+        fig_max, ax_max = subplots(xg, yg, sharey=True, sharex=True, figsize=(20,12))
+        subplots_adjust(left=0.06, right=0.99, top=0.97, bottom=0.07, hspace=0.0, wspace=0.0)
+        
+        for t, tm in enumerate(n_temps):
+
+            i = t%yg
+            j = int(t/yg)
+
+            lstyle_pointer = 0
+            max_dd, f0max = [], []
+
+            for k in range(len(kids)):
+
+                kid = kids[k]
+
+                if k%10 == 0 and k > 0:
+                    lstyle_pointer += 1
+                   
+                attens = self._get_atten_to_sweep(atten, tm, kid)
+
+                atts_num, dds = [], []
+                for single_atten in attens:
+                    try:
+
+                        if float(single_atten[1:]) >= self.overdriven[k] and float(single_atten[1:]) < 56:
+
+                            f, s21 = self.data['vna'][kid][tm][single_atten]['data'][sample]
+
+                            if self.data_type.lower() == 'dark':                              
+                                real_temp = f'{self.data['vna'][kid][tm][single_atten]['header'][sample]['SAMPLETE']*1e3:.0f}mK'
+                            elif self.data_type.lower() == 'blackbody':                              
+                                real_temp = f'{self.data['vna'][kid][tm][single_atten]['header'][sample]['BLACKBOD']:.1f}K'
+
+                            # Get dip-depths
+                            if kid == 'K1111':
+                                dd_pts = 41
+                            else:
+                                dd_pts = 51
+
+                            s21_mag = 20*np.log10(np.abs(s21))
+                            s21_sm = savgol_filter(s21_mag, dd_pts, 3)
+
+                            baseline = np.mean(np.concatenate((s21_mag[:baseline_lims[0]], s21_mag[baseline_lims[1]:])))
+                            min_s21 = np.min(s21_sm)
+
+                            dd = np.abs(baseline-min_s21)
+                            dds.append(dd)
+
+                            extra_att = self.data['vna'][kid][tm][single_atten]['header'][0]['ATT_UC'] + \
+                                        self.data['vna'][kid][tm][single_atten]['header'][0]['ATT_C'] + \
+                                        self.data['vna'][kid][tm][single_atten]['header'][0]['ATT_RT']
+
+                            vna_pwr = self.data['vna'][kid][tm][single_atten]['header'][0]['VNAPOWER']
+                                        
+                            atts_num.append(-1*(float(single_atten[1:])+extra_att+self.add_in_atten)+vna_pwr )
+                
+                    except Exception as e:
+                        msg(str(e), 'fail')
+
+
+                if xg == 1 and yg == 1:
+                    axm.plot(atts_num, dds, 'D', linestyle=lstyle[lstyle_pointer], label=kid)
+
+                elif xg == 1:
+                    axm[i].plot(atts_num, dds, 'D', linestyle=lstyle[lstyle_pointer], label=kid)
+
+                else:
+                    axm[j, i].plot(atts_num, dds, 'D', linestyle=lstyle[lstyle_pointer], label=kid)
+
+                try:
+                    # Get the maximum Q
+                    max_dd.append(np.max(dds))
+
+                    max_att = attens[np.argmax(dds)]
+                    ft, s21t = self.data['vna'][kid][tm][max_att]['data'][sample]
+                    f0max.append(ft[np.argmin(np.abs(s21t))])
+                
+                except:
+                    pass
+
+            if xg == 1 and yg == 1:
+                ax_max.plot(np.array(f0max)*1e-6, max_dd, 'ks-')
+
+                for m in range(len(max_dd)):
+                    ax_max.text( f0max[m]*1e-6, max_dd[m]-0.1, 'K'+str(m).zfill(3) )
+
+            elif xg == 1:
+                ax_max[i].plot(np.array(f0max)*1e-6, max_dd, 'ks-')
+
+                for m in range(len(max_dd)):
+                    ax_max[i].text( f0max[m]*1e-6, max_dd[m]-0.1, 'K'+str(m).zfill(3) )
+            
+            else:
+                ax_max[j, i].plot(np.array(f0max)*1e-6, max_dd, 'ks-')
+
+                for m in range(len(max_dd)):
+                    ax_max[j, i].text( f0max[m]*1e-6, max_dd[m]-0.1, 'K'+str(m).zfill(3) )
+
+            if len(n_temps) > 1:
+                if self.data_type.lower() == 'dark':
+                    subfix = 'mK'
+                    real_temp = f'{self.data['vna'][kid][tm][max_att]['header'][0]['SAMPLETE']*1e3:.0f}'
+
+                elif self.data_type.lower() == 'blackbody':
+                    subfix = 'K'
+                    real_temp = f'{self.data['vna'][kid][tm][max_att]['header'][0]['BLACKBOD']:.1f}'
+
+                if xg == 1:
+                    axm[i].text(0.7, 0.85, real_temp + ' '+subfix, {'fontsize': 15, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=axm[i].transAxes,)
+                    ax_max[i].text(0.7, 0.85, real_temp + ' '+subfix, {'fontsize': 15, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_max[i].transAxes,)
+
+                else:
+                    axm[j, i].text(0.7, 0.85, real_temp + ' '+subfix, {'fontsize': 15, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=axm[j, i].transAxes,)
+                    ax_max[j, i].text(0.7, 0.85, real_temp + ' '+subfix, {'fontsize': 15, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_max[j, i].transAxes,)
+
+            if i == 0:
+                if len(n_temps) == 1:
+                    axm.set_ylabel('Dip-depth [dB]', fontsize=18, weight='bold')
+                    ax_max.set_ylabel('Dip-depth [dB]', fontsize=18, weight='bold')
+
+                else:
+                    if xg == 1:
+                        axm[i].set_ylabel('Dip-depth [dB]', fontsize=18, weight='bold')
+                        ax_max[i].set_ylabel('Dip-depth [dB]', fontsize=18, weight='bold')
+
+                    else:
+                        axm[j, i].set_ylabel('Dip-depth [dB]', fontsize=18, weight='bold')
+                        ax_max[j, i].set_ylabel('Dip-depth [dB]', fontsize=18, weight='bold')
+
+            if len(n_temps) == 1:
+                axm.grid(True, which="both", ls="-")
+                ax_max.grid(True, which="both", ls="-")
+            
+            else:
+                if xg == 1:
+                    axm[i].grid(True, which="both", ls="-")
+                    ax_max[i].grid(True, which="both", ls="-")
+
+                else:
+                    axm[j, i].grid(True, which="both", ls="-")
+                    ax_max[j, i].grid(True, which="both", ls="-")
+
+            if j == xg - 1:
+                if len(n_temps) == 1:
+                    axm.set_xlabel('Drive power [dBm]', fontsize=18, weight='bold')
+                    ax_max.set_xlabel('Resonance frequency [MHz]', fontsize=18, weight='bold')
+
+                else:
+                    if xg == 1:
+                        axm[i].set_xlabel('Drive power [dBm]', fontsize=18, weight='bold')
+                        ax_max[i].set_xlabel('Resonance frequency [MHz]', fontsize=18, weight='bold')
+
+                    else:
+                        axm[j, i].set_xlabel('Drive power [dBm]', fontsize=18, weight='bold')
+                        ax_max[j, i].set_xlabel('Resonance frequency [MHz]', fontsize=18, weight='bold')
+
+                if t == len(n_temps)-1:
+                    if len(n_temps) == 1:
+                        axm.legend(ncol=2)
+
+                    else:
+                        if xg == 1:
+                            axm[i].legend(ncol=2)
+
+                        else:
+                            axm[j, i].legend(ncol=2)
+
+        show()
+
+        # Save figures
+        fig_max.savefig(self.work_dir+self.project_name+'/fit_res_results/summary_plots/Max-dip-depths.png')
+        fig_axm.savefig(self.work_dir+self.project_name+'/fit_res_results/summary_plots/Dip-depths-vs-drive-power.png')
+
     def plot_qs_vs_drive_power(self, kid=None, temp=None, atten=None, **kwargs):
         """
         Generate the plot qi vs drive power.
@@ -2478,6 +2714,12 @@ class Homodyne:
         fig_qr, ax_qr = subplots(x, y, sharey=True, sharex=True, figsize=(20,12))
         subplots_adjust(left=0.06, right=0.99, top=0.97, bottom=0.07, hspace=0.0, wspace=0.0)
 
+        # Dip depths
+        fig_max, ax_max = subplots(x, y, sharey=True, sharex=True, figsize=(20,12))
+        subplots_adjust(left=0.06, right=0.99, top=0.97, bottom=0.07, hspace=0.0, wspace=0.0)
+        fig_mean, ax_mean = subplots(x, y, sharey=True, sharex=True, figsize=(20,12))
+        subplots_adjust(left=0.06, right=0.99, top=0.97, bottom=0.07, hspace=0.0, wspace=0.0)
+
         for t, tmp in enumerate(n_temps):
 
             i = t%y
@@ -2496,6 +2738,10 @@ class Homodyne:
 
             norm_color = matplotlib.colors.Normalize(vmin=0, vmax=vmax_color)
 
+            max_qi = []
+            mean_qc = []
+            f0_max = []
+            
             for k, kid in enumerate(kids):
 
                 if not kid in ignore_kids:
@@ -2506,7 +2752,7 @@ class Homodyne:
                     atts_num = []
                     qi, qc, qr = [], [], []
                     qi_err, qc_err, qr_err = [], [], []
-
+                    
                     for att in attens:
                         try:
                             if float(att[1:]) >= self.overdriven[k2]:
@@ -2515,8 +2761,8 @@ class Homodyne:
 
                                     # Get the attenuations
                                     extra_att = self.data['vna'][kid][tmp][att]['header'][0]['ATT_UC'] + \
-                                                self.data['vna'][kid][tmp][att]['header'][0]['ATT_C']
-                                                #self.data['vna'][kid][tmp][att]['header'][0]['ATT_RT']
+                                                self.data['vna'][kid][tmp][att]['header'][0]['ATT_C'] + \
+                                                self.data['vna'][kid][tmp][att]['header'][0]['ATT_RT']
                                                 # This should be commented just for RV2-Chip 2
 
                                     #print(self.data['vna'][kid][tmp][att]['header'][0]['ATT_UC'])
@@ -2538,6 +2784,22 @@ class Homodyne:
 
                         except Exception as e:
                             print(att+' not available\n'+str(e))
+                    
+                    # Get the max Qi
+                    try:
+                        max_qi.append(np.max(qi))
+
+                        # Get the mean Qc
+                        mean_qc.append(np.mean(qc))
+
+
+                        max_att = attens[np.argmax(qi)]
+                        ft, s21t = self.data['vna'][kid][tmp][max_att]['data'][0]
+                        f0_max.append(ft[np.argmin(np.abs(s21t))])
+
+                    except:
+                        pass
+
 
                     if k%10 == 0 and k > 0:
                         lstyle_pointer += 1
@@ -2546,8 +2808,6 @@ class Homodyne:
                         k_color = k%int(cmap[-2:])
                     else:
                         k_color = k
-
-                    print(n_temps)
 
                     if len(n_temps) == 1:
 
@@ -2592,6 +2852,29 @@ class Homodyne:
                             ax_qr[j, i].errorbar(atts_num, qr, yerr=qr_err, color=cmap_obj(norm_color(k_color)), marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
                             ax_qr[j, i].plot(atts_num, qr, 'o', label=kid, color=cmap_obj(norm_color(k_color)), linestyle=lstyle[lstyle_pointer])
 
+            if x == 1 and y == 1:
+                ax_max.plot(np.array(f0_max)*1e-6, max_qi, 'ks-')
+                ax_mean.plot(np.array(f0_max)*1e-6, mean_qc, 'ks-')
+
+                for m in range(len(max_qi)):
+                    ax_max.text( f0_max[m]*1e-6, max_qi[m]-0.1, 'K'+str(m).zfill(3) )
+                    ax_mean.text( f0_max[m]*1e-6, mean_qc[m]-0.1, 'K'+str(m).zfill(3) )
+
+            elif x == 1:
+                ax_max[i].plot(np.array(f0_max)*1e-6, max_qi, 'ks-')
+                ax_mean[i].plot(np.array(f0_max)*1e-6, mean_qc, 'ks-')
+
+                for m in range(len(max_qi)):
+                    ax_max[i].text( f0_max[m]*1e-6, max_qi[m]-0.1, 'K'+str(m).zfill(3) )
+                    ax_mean[i].text( f0_max[m]*1e-6, mean_qc[m]-0.1, 'K'+str(m).zfill(3) )
+            
+            else:
+                ax_max[j, i].plot(np.array(f0_max)*1e-6, max_qi, 'ks-')
+                ax_mean[j, i].plot(np.array(f0_max)*1e-6, mean_qc, 'ks-')
+
+                for m in range(len(max_qi)):
+                    ax_max[j, i].text( f0_max[m]*1e-6, max_qi[m]-0.1, 'K'+str(m).zfill(3) )
+                    ax_mean[j, i].text( f0_max[m]*1e-6, mean_qc[m]-0.1, 'K'+str(m).zfill(3) )
 
             if len(n_temps) > 1:
                 if self.data_type.lower() == 'dark':
@@ -2606,48 +2889,66 @@ class Homodyne:
                     ax_qr[i].text(0.7, 0.85, real_temp + ' '+subfix, {'fontsize': 15, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_qr[i].transAxes,)
                     ax_qc[i].text(0.7, 0.85, real_temp + ' '+subfix, {'fontsize': 15, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_qc[i].transAxes,)
                     ax_qi[i].text(0.7, 0.85, real_temp + ' '+subfix, {'fontsize': 15, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_qi[i].transAxes,)
+                    ax_max[i].text(0.7, 0.85, real_temp + ' '+subfix, {'fontsize': 15, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_max[i].transAxes,)
+                    ax_mean[i].text(0.7, 0.85, real_temp + ' '+subfix, {'fontsize': 15, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_mean[i].transAxes,)
 
                 else:
                     ax_qr[j, i].text(0.7, 0.85, real_temp + ' '+subfix, {'fontsize': 15, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_qr[j, i].transAxes,)
                     ax_qc[j, i].text(0.7, 0.85, real_temp + ' '+subfix, {'fontsize': 15, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_qc[j, i].transAxes,)
                     ax_qi[j, i].text(0.7, 0.85, real_temp + ' '+subfix, {'fontsize': 15, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_qi[j, i].transAxes,)
+                    ax_max[j, i].text(0.7, 0.85, real_temp + ' '+subfix, {'fontsize': 15, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_max[j, i].transAxes,)
+                    ax_mean[j, i].text(0.7, 0.85, real_temp + ' '+subfix, {'fontsize': 15, 'color': 'white'}, bbox=dict(facecolor='blue', alpha=0.95), transform=ax_mean[j, i].transAxes,)
 
             if i == 0:
                 if len(n_temps) == 1:
                     ax_qi.set_ylabel('Qi', fontsize=18, weight='bold')
                     ax_qc.set_ylabel('Qc', fontsize=18, weight='bold')
                     ax_qr.set_ylabel('Qr', fontsize=18, weight='bold')
+                    ax_max.set_ylabel('max Qi', fontsize=18, weight='bold')
+                    ax_mean.set_ylabel('mean Qc', fontsize=18, weight='bold')
 
                 else:
                     if x == 1:
                         ax_qi[i].set_ylabel('Qi', fontsize=18, weight='bold')
                         ax_qc[i].set_ylabel('Qc', fontsize=18, weight='bold')
                         ax_qr[i].set_ylabel('Qr', fontsize=18, weight='bold')
+                        ax_max[i].set_ylabel('max Qi', fontsize=18, weight='bold')
+                        ax_mean[i].set_ylabel('mean Qc', fontsize=18, weight='bold')
                     else:
                         ax_qi[j, i].set_ylabel('Qi', fontsize=18, weight='bold')
                         ax_qc[j, i].set_ylabel('Qc', fontsize=18, weight='bold')
                         ax_qr[j, i].set_ylabel('Qr', fontsize=18, weight='bold')
+                        ax_max[j, i].set_ylabel('max Qi', fontsize=18, weight='bold')
+                        ax_mean[j, i].set_ylabel('mean Qc', fontsize=18, weight='bold')
 
             if len(n_temps) == 1:
                 ax_qi.grid(True, which="both", ls="-")
                 ax_qc.grid(True, which="both", ls="-")
                 ax_qr.grid(True, which="both", ls="-")
+                ax_max.grid(True, which="both", ls="-")
+                ax_mean.grid(True, which="both", ls="-")
             
             else:
                 if x == 1:
                     ax_qi[i].grid(True, which="both", ls="-")
                     ax_qc[i].grid(True, which="both", ls="-")
                     ax_qr[i].grid(True, which="both", ls="-")
+                    ax_max[i].grid(True, which="both", ls="-")
+                    ax_mean[i].grid(True, which="both", ls="-")
                 else:
                     ax_qi[j, i].grid(True, which="both", ls="-")
                     ax_qc[j, i].grid(True, which="both", ls="-")
                     ax_qr[j, i].grid(True, which="both", ls="-")
+                    ax_max[j, i].grid(True, which="both", ls="-")
+                    ax_mean[j, i].grid(True, which="both", ls="-")
 
             if j == x-1:
                 if len(n_temps) == 1:
                     ax_qi.set_xlabel('Drive power [dBm]', fontsize=18, weight='bold')
                     ax_qc.set_xlabel('Drive power [dBm]', fontsize=18, weight='bold')
                     ax_qr.set_xlabel('Drive power [dBm]', fontsize=18, weight='bold')
+                    ax_max.set_xlabel('Resonance frequency [Hz]', fontsize=18, weight='bold')
+                    ax_mean.set_xlabel('Resonance frequency [Hz]', fontsize=18, weight='bold')
 
                 else:
 
@@ -2655,25 +2956,36 @@ class Homodyne:
                         ax_qi[i].set_xlabel('Drive power [dBm]', fontsize=18, weight='bold')
                         ax_qc[i].set_xlabel('Drive power [dBm]', fontsize=18, weight='bold')
                         ax_qr[i].set_xlabel('Drive power [dBm]', fontsize=18, weight='bold')
+                        ax_max[i].set_xlabel('Resonance frequency [Hz]', fontsize=18, weight='bold')
+                        ax_mean[i].set_xlabel('Resonance frequency [Hz]', fontsize=18, weight='bold')
                     else:
                         ax_qi[j, i].set_xlabel('Drive power [dBm]', fontsize=18, weight='bold')
                         ax_qc[j, i].set_xlabel('Drive power [dBm]', fontsize=18, weight='bold')
                         ax_qr[j, i].set_xlabel('Drive power [dBm]', fontsize=18, weight='bold')
+                        ax_max[j, i].set_xlabel('Resonance frequency [Hz]', fontsize=18, weight='bold')
+                        ax_mean[j, i].set_xlabel('Resonance frequency [Hz]', fontsize=18, weight='bold')
 
                 if t == len(n_temps)-1:
                     if len(n_temps) == 1:
                         ax_qi.legend(ncol=2)
                         ax_qc.legend(ncol=2)
                         ax_qr.legend(ncol=2)
+                        #ax_max.legend(ncol=2)
+                        #ax_mean.legend(ncol=2)
+
                     else:
                         if x == 1:
                             ax_qi[i].legend(ncol=2)
                             ax_qc[i].legend(ncol=2)
                             ax_qr[i].legend(ncol=2)
+                            #ax_max[i].legend(ncol=2)
+                            #ax_mean[i].legend(ncol=2)
                         else:
                             ax_qi[j, i].legend(ncol=2)
                             ax_qc[j, i].legend(ncol=2)
                             ax_qr[j, i].legend(ncol=2)
+                            #ax_max[j, i].legend(ncol=2)
+                            #ax_mean[j, i].legend(ncol=2)
 
             t += 1
 
@@ -2683,6 +2995,8 @@ class Homodyne:
         fig_qr.savefig(self.work_dir+self.project_name+'/fit_res_results/summary_plots/Qr_vs_power.png')
         fig_qc.savefig(self.work_dir+self.project_name+'/fit_res_results/summary_plots/Qc_vs_power.png')
         fig_qi.savefig(self.work_dir+self.project_name+'/fit_res_results/summary_plots/Qi_vs_power.png')
+        fig_max.savefig(self.work_dir+self.project_name+'/fit_res_results/summary_plots/Qi_max.png')
+        fig_mean.savefig(self.work_dir+self.project_name+'/fit_res_results/summary_plots/Qc_mean.png')
 
     def plot_ts_summary(self, kid, temp, atten=None, ignore=[[0,1], [0]], cmap='viridis'):
         """
@@ -3016,6 +3330,7 @@ class Homodyne:
 
                             if data_source == 'vna':
                                 f, s21 = self.data['vna'][kid][tm][single_atten]['data'][sample]
+                                
                                 if self.data_type.lower() == 'dark':                              
                                     real_temp = f'{self.data['vna'][kid][tm][single_atten]['header'][sample]['SAMPLETE']*1e3:.0f}mK'
                                 elif self.data_type.lower() == 'blackbody':                              
@@ -3029,25 +3344,30 @@ class Homodyne:
                                 elif self.data_type.lower() == 'blackbody':                              
                                     real_temp = f'{self.data['ts'][kid][tm][single_atten]['hdr_on'][0]['BLACKBOD']:.1f}K'
 
-                            if xg == 1 and yg == 1:
-                                axm.plot(f/1e6, 20*np.log10(np.abs(s21)), color=single_color, alpha=alpha, lw=1.75, label=real_temp)
-                            elif xg == 1 or yg == 1:
-                                axm[i].plot(f/1e6, 20*np.log10(np.abs(s21)), color=single_color, alpha=alpha, lw=1.75, label=real_temp)
+                            if False:
+                                add = -20+2.5+0.5
                             else:
-                                axm[j,i].plot(f/1e6, 20*np.log10(np.abs(s21)), color=single_color, alpha=alpha, lw=1.75, label=real_temp)
+                                add = 0
+                                
+                            if xg == 1 and yg == 1:
+                                axm.plot(f/1e6, 20*np.log10(np.abs(s21))+add, color=single_color, alpha=alpha, lw=1.75, label=real_temp)
+                            elif xg == 1 or yg == 1:
+                                axm[i].plot(f/1e6, 20*np.log10(np.abs(s21))+add, color=single_color, alpha=alpha, lw=1.75, label=real_temp)
+                            else:
+                                axm[j,i].plot(f/1e6, 20*np.log10(np.abs(s21))+add, color=single_color, alpha=alpha, lw=1.75, label=real_temp)
                             
                             if t == 0 and a == len(attens)-1:
                                 if xg == 1 and yg == 1:
-                                    axm.text(f[0]/1e6+0.65*(f[-1]-f[0])/1e6, np.min(20*np.log10(np.abs(s21)))+ \
+                                    axm.text(f[0]/1e6+0.65*(f[-1]-f[0])/1e6, np.min(20*np.log10(np.abs(s21)))+add+ \
                                                 0.1*(np.max(20*np.log10(np.abs(s21)))-np.min(20*np.log10(np.abs(s21)))), \
                                                 kid+'\n'+single_atten[1:]+'dB', {'fontsize':17, 'color':'blue'})
                                                                 
                                 elif xg == 1 or yg == 1:
-                                    axm[i].text(f[0]/1e6+0.65*(f[-1]-f[0])/1e6, np.min(20*np.log10(np.abs(s21)))+ \
+                                    axm[i].text(f[0]/1e6+0.65*(f[-1]-f[0])/1e6, np.min(20*np.log10(np.abs(s21)))+add+ \
                                                 0.1*(np.max(20*np.log10(np.abs(s21)))-np.min(20*np.log10(np.abs(s21)))), \
                                                 kid+'\n'+single_atten[1:]+'dB', {'fontsize':17, 'color':'blue'})
                                 else:
-                                    axm[j,i].text(f[0]/1e6+0.65*(f[-1]-f[0])/1e6, np.min(20*np.log10(np.abs(s21)))+ \
+                                    axm[j,i].text(f[0]/1e6+0.65*(f[-1]-f[0])/1e6, np.min(20*np.log10(np.abs(s21)))+add+ \
                                                 0.1*(np.max(20*np.log10(np.abs(s21)))-np.min(20*np.log10(np.abs(s21)))), \
                                                 kid+'\n'+single_atten[1:]+'dB', {'fontsize':17, 'color':'blue'})
 
@@ -3348,33 +3668,8 @@ class Homodyne:
         Fit resonator job.
         """
         fit_res = fit_resonator(f, s21, n=n, tau=tau)
+        print(kid+','+temp+','+atten)
         fitRes[kid+','+temp+','+atten] = fit_res
-
-    def _find_kids_segmented_vna(self, f, thresh=1e4, exp=None):
-        """
-        Find the KIDs in the segmented VNA.
-        Parameters
-        ----------
-        f : array
-            Frequency array.
-        thresh[opt] : float
-            KID detection threshold.
-        ----------
-        """
-
-        if exp != None:
-            segs = np.reshape(np.arange(len(f)), (exp, int(len(f)/exp)))
-            n_kids = np.zeros(exp, dtype=int)
-            for i in range(exp):
-                n_kids[i] = segs[i][0]
-            n_kids = n_kids[1:]
-        else:
-            # Number of KIDs
-            n_kids = np.where( np.abs(np.diff(f)) > thresh )[0]
-
-        n_kids = np.concatenate(([0], n_kids, [-1]))
-
-        return n_kids
 
     def _extract_features_from_name(self, name, **kwargs):
         """
