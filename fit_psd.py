@@ -136,9 +136,13 @@ class fit_psd(object):
         tlsb_min = -1.5
         tlsb_max = -0.01
         """
+        """
         tlsb_min = -2.5
         tlsb_max = -0.01
-
+        """
+        tlsb_min = -0.5 #-0.7
+        tlsb_max = -0.01
+        
         # A M P   N O I S E
         # -------------------------------------
         """

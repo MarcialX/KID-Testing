@@ -32,12 +32,13 @@ Tcmb = 2.725
 # Single spin density of states at the Fermi level [um^-3 J^-1]
 N0s = {
         'Al'    : 1.07e29,
+        'AlTiAl': 1.07e29, # From weightened average (ChatGPT): 1.00e29
         'TiN'   : 2.43e29
 }
 
 # Tc [K]
 Tcs = {
         'Al'    : 1.3,
-        'AlTiAl': 0.85,
+        'AlTiAl': 1.01,
         'TiN'   : 3.816 # Fb-Sp-TiN 35
 }

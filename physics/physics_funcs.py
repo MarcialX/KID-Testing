@@ -176,8 +176,11 @@ def spectra_noise_model(freqs, gr_level, tau_qp, tls_a, tls_b, amp_noise=0, Qr=2
     amp = amp_noise
     """
 
-    relax = relaxation(freqs, tau_qp, Qr, f0)
-    Sxx = amp_noise + (gr_level*np.ones_like(freqs) + (tls_a*freqs**(tls_b))) * relax
+    #relax = relaxation(freqs, tau_qp, Qr, f0)
+    gr = gr_noise(freqs, gr_level, tau_qp, Qr, f0)
+    tls = tls_noise(freqs, tls_a, tls_b, tau_qp, Qr, f0)
+
+    Sxx = amp_noise + gr + tls
     
     # Total noise
     return Sxx
@@ -220,10 +223,10 @@ def tls_noise(freqs, tls_a, tls_b, tau_qp, Qr, f0):
     -----------
     """
 
-    #return (tls_a*freqs**(tls_b)) / (1.+(2*np.pi*freqs*Qr/np.pi/f0)**2)
+    return (tls_a*freqs**(tls_b)) / (1.+(2*np.pi*freqs*Qr/np.pi/f0)**2)
     #return (tls_a*freqs**(tls_b)) / (1.+(2*np.pi*freqs*tau_qp)**2) / (1.+(2*np.pi*freqs*Qr/np.pi/f0)**2)
-    relax = relaxation(freqs, tau_qp, Qr, f0)
-    return (tls_a*freqs**(tls_b)) * relax
+    #relax = relaxation(freqs, tau_qp, Qr, f0)
+    #return (tls_a*freqs**(tls_b)) * relax
 
 def relaxation(freqs, tau_qp, Qr, f0):
 
@@ -422,7 +425,7 @@ def AOmega(f0, modes=1):
     AO = modes*((c/f0)**2)/2
     return AO
 
-def get_power_from_FTS(diry, kid, T, n_pols=2):
+def get_power_from_FTS(diry, kid, T, modes=1):
     """
     Get the power from the FTS.
     Parameters
@@ -439,27 +442,30 @@ def get_power_from_FTS(diry, kid, T, n_pols=2):
     """
 
     # Load transmission.
-    f_sel, tx_sel = load_tx(diry, kid, freq_upper_limit=350)
+    f_sel, tx_sel = load_tx(diry, kid, freq_upper_limit=250)
 
     # Transmission * BB(T)
     spec = tx_sel*planck(f_sel*1e9, T)
     # Get the central frequency
-    f0 = f_sel[np.argmax(tx_sel*1e9)]*1e9
-    print(f'F0: {f0:.2f} GHz')
+    #f0 = f_sel[np.nanargmax(tx_sel*1e9)]*1e9
+    #print(f'F0: {f0:.2f} GHz')
 
     # A*Omega assuming beam fill.
-    AO = AOmega(f0, modes=1)
+    #AO = AOmega(f0, modes=modes)
+    
+    #print('----------------------------------------------------')
+    AO = AOmega(f_sel*1e9, modes=modes)
 
-    """
-    figure()
-    plot(f_sel, spec, label=str(kid).zfill(3))
+    #figure()
+    #plot(f_sel, spec, label=str(kid).zfill(3))
+    #plot(f_sel, planck(f_sel*1e9, T), 'k')
     #axvline(nu_max)
-    print('Central freq: ', nu_max)
-    show()
-    """
+    #print('Central freq: ', nu_max)
+    #show()
 
     # Get total power
-    P = integrate.trapezoid(spec, f_sel*1e9) * AO
+    P = integrate.trapezoid(AO*spec, f_sel*1e9)
+    #print(f'Total power [pW]: {1e12*P:.2f}')
 
     return P
 

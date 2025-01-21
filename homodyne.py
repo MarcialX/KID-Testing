@@ -187,6 +187,10 @@ class Homodyne:
         self._range = [0, 0]
 
         self._xc, self._yc, self._theta = 0, 0, 0
+        self.Qs_derot, self.Is_derot = 0, 0
+        self.kid_mdl = None
+
+        self.phase_ref, self.phase_ref_high = 0, 0
 
         msg('Done', 'ok')
 
@@ -250,11 +254,14 @@ class Homodyne:
                             # Read the homodyne data
                             try:
                                 (f_s21, s21, sweep_hr), (ts_low_on, I_low_on, Q_low_on, hr_low_on), (ts_high_on, I_high_on, Q_high_on, hr_high_on), \
-                                (ts_low_off, I_low_off, Q_low_off, hr_low_off), (ts_high_off, I_high_off, Q_high_off, hr_high_off) = get_homodyne_data(full_path)
+                                (ts_low_off, I_low_off, Q_low_off, hr_low_off), (ts_high_off, I_high_off, Q_high_off, hr_high_off), (f_s21_high, s21_high) = get_homodyne_data(full_path)
 
                                 # Frequency sweeps from homodyne.
                                 data['ts'][kid][temp][atten]['f'] = f_s21
                                 data['ts'][kid][temp][atten]['s21'] = s21
+                                # High resolution sweep
+                                data['ts'][kid][temp][atten]['f_high'] = f_s21_high
+                                data['ts'][kid][temp][atten]['s21_high'] = s21_high
                                 # Timestream ON/OFF resonance.
                                 data['ts'][kid][temp][atten]['ts_on'] = [ts_low_on, ts_high_on]
                                 data['ts'][kid][temp][atten]['ts_off'] = [ts_low_off, ts_high_off]
@@ -266,7 +273,7 @@ class Homodyne:
                                 # Timestream ON/OFF header
                                 data['ts'][kid][temp][atten]['hdr_on'] = [hr_low_on, hr_high_on]
                                 data['ts'][kid][temp][atten]['hdr_off'] = [hr_low_off, hr_high_off]
-                                # Frequency HR-sweep.
+                                # Sweep header.
                                 data['ts'][kid][temp][atten]['s21_hr'] = sweep_hr
 
                             except:
@@ -1199,7 +1206,7 @@ class Homodyne:
                     self.get_psd_on_off(kid, tmp, att, ignore=ignore, fit=fit_psd, plot_fit=plot_fit, \
                                         n_pts=n_pts, inter=inter, smooth_params=smooth_params, psd_type=psd_type)
 
-    def get_responsivity(self, kid, **kwargs):
+    def get_responsivity(self, kid, tmt, **kwargs):
         """
         Get responsivity
         Parameters
@@ -1264,7 +1271,7 @@ class Homodyne:
         dims = kwargs.pop('dims', [1,1,1])
         self.dims = dims
         # Bandwidth.
-        nu = kwargs.pop('nu', 35e9)
+        nu = kwargs.pop('nu', 20e9)
         # List of detectors to flag.
         flag_kid = kwargs.pop('flag_kid', [])
         # Customise the plots.
@@ -1282,7 +1289,7 @@ class Homodyne:
         #  Method to get power.
         pwr_method = kwargs.pop('pwr_method', 'bandwidth')
         # Number of points to fit the Nqp counting from the end.
-        nqp_fit_pts = kwargs.pop('nqp_fit_pts', -4)
+        nqp_fit_pts = kwargs.pop('nqp_fit_pts', -4) #-4
         # Plot responsivity as var vs power/BB/Nqp
         plot_res = kwargs.pop('plot_res', True)
         # Smooth transmission?
@@ -1296,7 +1303,7 @@ class Homodyne:
         #print('-------------->', nqp_fit_pts)
 
         if from_fit == False and method == 'min':
-            if var != 'fr':
+            if not var in ['fr', 'Qi']:
                 msg("Only var = 'fr' is valid under these conditions", "fail")
                 return
 
@@ -1314,28 +1321,33 @@ class Homodyne:
         yg = int(len(kids)/xg)
 
         tot_kids = len(self._get_kids_to_sweep(None))
-        tot_temps = len(self._get_temps_to_sweep(None, kids[0]))
+        if tmt == None:
+            tot_temps = len(self._get_temps_to_sweep(None, kids[0]))
+        else:
+            tot_temps = len(tmt)
 
         S = np.zeros((tot_kids, tot_temps))
         pwrs = np.zeros((tot_kids, tot_temps))
         tmps = np.zeros((tot_kids, tot_temps))
 
-        base_f0 = 0
-        
         if plot_res:
             lstyle_pointer = 0
 
             fig, ax = subplots(1,1, figsize=(15,9))
             subplots_adjust(left=0.110, right=0.99, top=0.97, bottom=0.07, hspace=0.0, wspace=0.0)
 
+        cnt = 0
         for kid in kids:
+            
+            base_f0 = 0
+        
             k = int(kid[1:])
             msg(kid, 'info')
 
             i = k%yg
             j = int(k/yg)
 
-            temps = self._get_temps_to_sweep(None, kid)
+            temps = self._get_temps_to_sweep(tmt, kid)
             xs = np.zeros_like(temps, dtype=float)
             real_temp = np.zeros_like(temps, dtype=float)
 
@@ -1356,12 +1368,14 @@ class Homodyne:
             # -----------------------------
 
             for t, tm in enumerate(temps):
+                
                 att = self._get_atten_to_sweep(atten[k], tm, kid)[0]
+                
                 try:
 
-                    if kid in ['K102', 'K105', 'K110']:    
+                    if False:    
                         xs[t] = np.nan
-                    
+
                     else:
 
                         # F I T
@@ -1373,14 +1387,21 @@ class Homodyne:
                                 f, s21 = self.data['vna'][kid][tm][att]['data'][sample]
 
                                 if (not 'fit' in self.data['vna'][kid][tm][att]) or kid in flag_kid:
-                                    
+
                                     if var in ['fr', 'phase']:
                                         msg(kid+'-'+tm+'-'+att+'. Fit data not available, using the min criteria.', 'info')
-                                        
-                                        s21_mag = 20*np.log10(np.abs(s21))
+
+                                        #s21_mag = 20*np.log10(np.abs(s21))
 
                                         if smooth:
-                                            s21_mag = savgol_filter(s21_mag, *smooth_params)
+                                            I_sm = savgol_filter(s21.real, *smooth_params)
+                                            Q_sm = savgol_filter(s21.imag, *smooth_params)
+                                            #s21_mag = savgol_filter(s21_mag, *smooth_params)
+                                        else:
+                                            I_sm = s21.real
+                                            Q_sm = s21.real
+
+                                        s21_mag = np.sqrt(I_sm**2 + Q_sm**2)
 
                                         f_idx = np.argmin(s21_mag)
                                         x = f[f_idx]
@@ -1401,7 +1422,8 @@ class Homodyne:
                                 else:
                                 
                                     if var == 'phase':
-                                        x = self.data['vna'][kid][tm][att]['fit']['fr']
+                                        print('P H A S E', tm)
+                                        x = self.data['vna'][kid][tm][att]['fit'][0]['fr']
                                         f_idx = np.where(f>=x)[0][0]
                                         
                                         # Get f0 at base temperature
@@ -1414,9 +1436,7 @@ class Homodyne:
                                         x = self.get_phase_shift(f_idx, x, s21, f, f0_ref, f0_thresh=5e4, label=tm)
 
                                     else:
-                                        x = self.data['vna'][kid][tm][att]['fit'][var]
-
-                                    print('Taken from the fit')
+                                        x = self.data['vna'][kid][tm][att]['fit'][0][var]
 
                             elif data_source == 'homo':
 
@@ -1427,7 +1447,7 @@ class Homodyne:
                                         f = self.data['ts'][kid][tm][att]['f']
                                         s21 = self.data['ts'][kid][tm][att]['s21']
                                         
-                                        x = self.data['ts'][kid][tm][att]['fit']['fr']
+                                        x = self.data['ts'][kid][tm][att]['fit'][0]['fr']
                                         f_idx = np.where(f>=x)[0][0]
                                         
                                         # Get f0 at base temperature
@@ -1440,7 +1460,7 @@ class Homodyne:
                                         x = self.get_phase_shift(f_idx, x, s21, f, f0_ref, f0_thresh=5e4, label=tm)
 
                                     else:
-                                        x = self.data['ts'][kid][tm][att]['fit'][var]
+                                        x = self.data['ts'][kid][tm][att]['fit'][0][var]
 
                                 else:
                                     x = self.data['ts'][kid][tm][att]['fit_psd']['params'][var]
@@ -1448,6 +1468,7 @@ class Homodyne:
                         # N O    F I T
                         # -------------
                         else:
+
                             if var in ['fr', 'phase']:
 
                                 if method == 'min':
@@ -1470,7 +1491,7 @@ class Homodyne:
                                         
                                         s21_mag = np.sqrt(I_sm**2 + Q_sm**2)
                                         plot(f, 20*np.log10(s21_mag), 'k--')
-                                    
+
                                     f_idx = np.argmin(s21_mag)
                                     x = f[f_idx]
                                     #axvline(x, color='r')
@@ -1496,7 +1517,7 @@ class Homodyne:
                     real_temp[t] = np.nan
 
             if var == 'phase':
-                savefig(self.work_dir+self.project_name+'/fit_res_dict/responsivity/derotated-IQ-F0.png')
+                savefig(self.work_dir+self.project_name+'/fit_res_dict/responsivity/'+kid+'-derotated-IQ-F0.png')
                 close('IQ_derot-vs-F0')
 
             try:
@@ -1506,11 +1527,36 @@ class Homodyne:
                     print('***********************************************')
                     msg('Temperature[K]: '+str(rt), 'info')
                     if temp_conv == 'power':
-                        if pwr_method == 'fts':
-                            p = get_power_from_FTS(diry_fts, k, rt)
-                        elif pwr_method == 'bandwidth':
-                            p = bb2pwr(rt, nu)
-                            print('From bandwidth')
+                        try:
+                            if pwr_method == 'fts':
+                                
+                                # This is for CPW2-Chip13
+                                #if k < 8:
+                                #    fc = 150e9
+                                #else:
+                                #    fc = 100e9
+
+                                # This is for ANL FT163 Chip 4
+                                #if k in [1, 2, 3, 6, 7, 0, 4, 8, 13]:
+                                #    fc = 150e9
+                                #elif k in [9, 11, 12, 14, 15]:
+                                #    fc = 97e9
+
+                                # This is for SOUK-TG-Al
+                                #if k in [0, 1, 2]:
+                                #    fc = 118e9
+                                #elif k in [3,4,5,6,7,8,9,10,11,12]:
+                                #    fc = 104e9
+
+                                print('From FTS')
+                                p = get_power_from_FTS(diry_fts, k, rt, modes=1) #, f0=fc)
+
+                            elif pwr_method == 'bandwidth':
+                                print('From bandwidth')
+                                print(f'BW [GHz]: {nu}')
+                                p = bb2pwr(rt, nu)
+                        except:
+                            p = np.nan
 
                         msg('Power[pW]: '+str(p*1e12), 'info')
                         power.append(p)
@@ -1542,6 +1588,7 @@ class Homodyne:
                 if temp_conv == 'power':
                     
                     if res_method == "fit":
+                        print('F I T   R E S   C U R V E')
                         popt, pcov = curve_fit(f0_vs_pwr_model, power, xs, p0=[1e4, -0.5])
                         a, b = popt
                         dF0_dP = a*b*power**(b-1)
@@ -1559,6 +1606,7 @@ class Homodyne:
                         """
 
                     elif res_method == "grad":
+                        print('G R A D I E N T')
                         dF0_dP = np.gradient(xs, power)
 
                     S[k] = dF0_dP
@@ -1570,7 +1618,6 @@ class Homodyne:
                     Nqps_fit = np.linspace(power[0], power[-1], 1000)
                     plot(power, xs, 'rs-')
                     plot(Nqps_fit, Nqps_fit*dF0_dNqp + b, 'k')
-                    
                     
                     S[k] = dF0_dNqp
 
@@ -1604,7 +1651,7 @@ class Homodyne:
 
             if plot_res:
 
-                if k%10 == 0 and k > 0:
+                if cnt%10 == 0 and cnt > 0:
                     lstyle_pointer += 1
 
                 if var == 'fr':
@@ -1636,16 +1683,18 @@ class Homodyne:
                     nw_xs_plot = np.array(nw_xs_plot)
                     nw_power = np.array(nw_power)
 
+                    opt_eff = 1 #0.004
+
                     if not custom is None:
                         color = custom[0][k]
                         mk = custom[1][k]
                         lsty = custom[2][k] 
-                        ax.plot(nw_power, ks*nw_xs_plot, label=kid, linestyle=lsty, marker=mk, color=color)
+                        ax.plot(1e12*opt_eff*nw_power, ks*nw_xs_plot, label=kid, linestyle=lsty, marker=mk, color=color)
                     else:                      
-                        ax.plot(nw_power, ks*nw_xs_plot, label=kid, linestyle=lstyle[lstyle_pointer], marker=lmarker[lstyle_pointer])
+                        ax.plot(1e12*opt_eff*nw_power, ks*nw_xs_plot, label=kid, linestyle=lstyle[lstyle_pointer], marker=lmarker[lstyle_pointer])
 
                     if temp_conv == 'power':
-                        ax.set_xlabel('Power [W]', fontsize=18, weight='bold')
+                        ax.set_xlabel('Power [pW]', fontsize=18, weight='bold')
                     elif temp_conv == 'Nqp':
                         ax.set_xlabel('Nqp', fontsize=18, weight='bold')
                     elif temp_conv == 'temp':
@@ -1653,12 +1702,15 @@ class Homodyne:
 
                     ax.legend(ncol=2)
 
+            cnt += 1
+
         if plot_res:
             show()
             fig.savefig(self.work_dir+self.project_name+'/fit_res_dict/responsivity/responsivity-'+str(var)+'-'+temp_conv+'-'+self.data_type+'.png')
 
         # Save results
         np.save(self.work_dir+self.project_name+'/fit_res_dict/responsivity/responsivity-'+str(var)+'-'+temp_conv+'-'+self.data_type, S)
+        print(S)
         np.save(self.work_dir+self.project_name+'/fit_res_dict/responsivity/responsivity-powers-'+str(var)+'-'+self.data_type, pwrs)
         np.save(self.work_dir+self.project_name+'/fit_res_dict/responsivity/responsivity-temps-'+str(var)+'-'+self.data_type, tmps)
 
@@ -1671,8 +1723,11 @@ class Homodyne:
         I0 = s21.real[f_idx]
         Q0 = s21.imag[f_idx]
         
-        xc, yc, theta, Is_derot, Qs_derot = get_rot_iq_circle(x, I0, Q0, f, s21.real, s21.imag, f0_thresh=f0_thresh)
-        
+        xc, yc, theta, Is_derot, Qs_derot, kid_mdl = get_rot_iq_circle(x, I0, Q0, f, s21.real, s21.imag, f, s21, f0_thresh=f0_thresh)
+
+        print('R O T A C I O N')
+        print(xc, yc, theta)
+
         f0_idx = np.where(f>=f0_ref)[0][0]
 
         I_f0 = Is_derot[f0_idx]
@@ -1685,6 +1740,7 @@ class Homodyne:
         legend()
 
         phase_f0 = np.arctan2(Q_f0, I_f0)
+
         if phase_f0 > np.pi/4:
             phase_f0 = phase_f0-2*np.pi
 
@@ -1710,6 +1766,8 @@ class Homodyne:
         fixed_temp = kwargs.pop('fixed_temp', "B000")
         # Frequency width
         df = kwargs.pop('df', 0.5)
+        # User defined temps
+        dtemps = kwargs.pop('dtemps', None)
         # ----------------------------------------------
 
         NEPs = np.zeros((2, len(fixed_freqs)), dtype=float)
@@ -1717,7 +1775,8 @@ class Homodyne:
 
         # Get responsivity
         # NOTE. The filenames have to chance.
-        S = np.load(self.work_dir+self.project_name+'/fit_res_dict/responsivity/responsivity-fr-Nqp-'+self.data_type+'.npy')
+        #S = np.load(self.work_dir+self.project_name+'/fit_res_dict/responsivity/responsivity-fr-Nqp-'+self.data_type+'.npy')
+        S = np.load(self.work_dir+self.project_name+'/fit_res_dict/responsivity/responsivity-fr-power-'+self.data_type+'.npy')
         pwrs = np.load(self.work_dir+self.project_name+'/fit_res_dict/responsivity/responsivity-powers-fr-'+self.data_type+'.npy')
 
         ioff()
@@ -1732,9 +1791,12 @@ class Homodyne:
             subplots_adjust(left=0.060, right=0.98, top=0.95, bottom=0.110, hspace=0.2, wspace=0.2)
             fig_neps, ax_neps = subplots(1, 1, figsize=(8,8))
             subplots_adjust(left=0.110, right=0.98, top=0.95, bottom=0.110, hspace=0.0, wspace=0.0)
+
             temps = self._get_temps_to_sweep(temp, kid, mode='ts')
             for t, tmp in enumerate(temps):
                 
+                avail_temps = sorted(list(self.data['vna'][kid].keys()))
+
                 try:
 
                     att = self._get_atten_to_sweep(self.overdriven[k], tmp, kid, mode='ts')[0]
@@ -1756,10 +1818,14 @@ class Homodyne:
                         f0 = fd[np.nanargmin(s21_d)]
                         Qr = 0
 
-                    NEP, NEP_ncorr = self.get_NEP(f_clean, psd_clean, tqp, S[k][t], Qr, f0)
+                    #print('C H E C K   H E R E ! ! !')
+                    tt = avail_temps.index(tmp)
+                    #print(tmp, t, tt, k)
+
+                    NEP, NEP_ncorr = self.get_NEP(f_clean, psd_clean, tqp, S[k][tt], Qr, f0)
 
                     # Get NEP from binning data
-                    NEP_bin, NEP_bin_ncorr = self.get_NEP(f_clean_bin, psd_clean_bin, tqp, S[k][t], Qr, f0)
+                    NEP_bin, NEP_bin_ncorr = self.get_NEP(f_clean_bin, psd_clean_bin, tqp, S[k][tt], Qr, f0)
 
                     for i, fx in enumerate(fixed_freqs):
                         idx_from = np.where(f_clean > fx-df*(i+1))[0][0]
@@ -1821,6 +1887,7 @@ class Homodyne:
         
         show()
 
+
     def get_NEP(self, f, psd, tqp, S, Qr, f0, **kwargs):
         """
         Get the NEP.
@@ -1851,14 +1918,16 @@ class Homodyne:
             #tqp = tqp/2
             NEP = np.sqrt(psd) * (( (eta*tqp/self.Delta)*(np.abs(S)) )**(-1)) * np.sqrt(1 + (2*np.pi*f*tqp)**2 ) * np.sqrt(1 + (2*np.pi*f*Qr/np.pi/f0)**2)
             NEP_no_corr = np.sqrt(psd) * (( (eta*tqp/self.Delta)*(np.abs(S)) )**(-1))
-            print('Checking dark NEP')
-            print('------------------')
-            print(f'tqp [us]: {1e6*tqp:.3f}')
-            print(f'Responsivity: {S:.2f}')
+            print('Dark NEP')
 
         elif self.data_type.lower() == 'blackbody':
             NEP = np.sqrt(psd) * ( (np.abs(S))**(-1)) * np.sqrt(1 + (2*np.pi*f*tqp)**2 ) * np.sqrt(1 + (2*np.pi*f*Qr/np.pi/f0)**2)
             NEP_no_corr = np.sqrt(psd) * ( (np.abs(S))**(-1) )
+            print('Optical NEP')
+
+        print(f'-----------------------')
+        print(f'tqp [us]: {1e6*tqp:.3f}')
+        print(f'Responsivity: {S:.2f}')
 
         return NEP, NEP_no_corr
 
@@ -1935,7 +2004,7 @@ class Homodyne:
         #f0 = self.data['vna'][kid][temp][atten]['fit']['fr']
         f0 = self.data['ts'][kid][temp][atten]['hdr_on'][0]['SYNTHFRE']
         try:
-            Qr = self.data['vna'][kid][temp][atten]['fit']['Qr']
+            Qr = self.data['vna'][kid][temp][atten]['fit'][0]['Qr']
         except Exception as e:
             msg('Qr not found. Qr set to zero, i.e. ring-down negligible.', 'warn')
             Qr = 0
@@ -1954,7 +2023,15 @@ class Homodyne:
         # S A V E   P S D   O N - O F F
         # -----------------------------
         # Get PSD ON - OFF
-        psd_mix = psd_on# - psd_off
+        
+        level_on = np.mean(psd_on[np.where(f_on>40e3)[0][0] : np.where(f_on>50e3)[0][0]])
+        level_off = np.mean(psd_off[np.where(f_off>40e3)[0][0] : np.where(f_off>50e3)[0][0]])
+        print('------>>>>>****', level_on)
+        print('------>>>>>****', level_off)
+
+        #psd_off = (level_on/level_off)*psd_off
+        psd_mix = psd_on # - psd_off
+
         f_clean = f_on[psd_mix>0]
         psd_clean = psd_mix[psd_mix>0]
 
@@ -2070,80 +2147,202 @@ class Homodyne:
             msg("PSD type not valid", "fail")
             return -1
 
-        try:
+        #try:
 
-            # H O M O D Y N E   S W E E P
-            # -----------------------------------------------------
-            f_s21 = self.data['ts'][kid][temp][atten]['f']
-            s21_h = self.data['ts'][kid][temp][atten]['s21']
-            Is_h = s21_h.real
-            Qs_h = s21_h.imag
+        # H O M O D Y N E   S W E E P
+        # -----------------------------------------------------
+        f_s21 = self.data['ts'][kid][temp][atten]['f']
+        s21_h = self.data['ts'][kid][temp][atten]['s21']
+        Is_h = s21_h.real
+        Qs_h = s21_h.imag
 
-            # Low-frequency PSD
-            # -----------------------------------------------------
-            I_low = self.data['ts'][kid][temp][atten]['I_'+mode][0]
-            Q_low = self.data['ts'][kid][temp][atten]['Q_'+mode][0]
-            I_low_f, Q_low_f = [], []
-            for i in range(len(I_low)):
-                if not i in ignore[0]:
-                    I_low_f.append(I_low[i])
-                    Q_low_f.append(Q_low[i])
+        f_high = self.data['ts'][kid][temp][atten]['f_high']
+        s21_high = self.data['ts'][kid][temp][atten]['s21_high']
 
-            print('Low-freq samples: ', len(I_low_f))
+        # Low-frequency PSD
+        # -----------------------------------------------------
+        I_low = self.data['ts'][kid][temp][atten]['I_'+mode][0]
+        Q_low = self.data['ts'][kid][temp][atten]['Q_'+mode][0]
+        I_low_f, Q_low_f = [], []
+        for i in range(len(I_low)):
+            if not i in ignore[0]:
+                I_low_f.append(I_low[i])
+                Q_low_f.append(Q_low[i])
 
-            hdr_low = self.data['ts'][kid][temp][atten]['hdr_'+mode][0]
-            fs = hdr_low['SAMPLERA']
-            f0 = hdr_low['SYNTHFRE']
-            print('Sample frequency: ', fs)
-            print('Resonance frequency [SYNTHFRE]: ', f0)
+        print('Low-freq samples: ', len(I_low_f))
 
-            if psd_type == 'df':
+        hdr_low = self.data['ts'][kid][temp][atten]['hdr_'+mode][0]
+        fs = hdr_low['SAMPLERA']
+        f0 = hdr_low['SYNTHFRE']
+
+        print('Sample frequency: ', fs)
+        print('Resonance frequency [SYNTHFRE]: ', f0)
+
+        if psd_type == 'df':
+
+            I0 = hdr_low['IF0']
+            Q0 = hdr_low['QF0']
+            
+            if mode == 'on':
+
+                print('F 0   O N   R E S O N A N C E')
+                print(f0, I0, Q0)
+                self._xc, self._yc, self._theta, self.Is_derot, self.Qs_derot, self.kid_mdl = get_rot_iq_circle(f0, I0, Q0, f_s21, Is_h, Qs_h, f_s21, s21_h, f0_thresh=5e4)
+                xr_low, It_derot, Qt_derot, self.phase_ref = df_from_derot_circle(self._xc, self._yc, self._theta, I_low_f, Q_low_f, self.kid_mdl, f0, name='low')
+
+                fig, axs = subplots(1, 1, figsize=(20, 12))
+                axs.plot(Is_h, Qs_h, 'k.-')
+                axs.plot(I0, Q0, 'gs')
+                axs.plot(self.Is_derot, self.Qs_derot, 'r.-')
+
+                I0_derot = (I0 - self._xc)*np.cos(-self._theta)-(Q0 - self._yc)*np.sin(-self._theta)
+                Q0_derot = (I0 - self._xc)*np.sin(-self._theta)+(Q0 - self._yc)*np.cos(-self._theta)
+
+                axs.plot(I0_derot, Q0_derot, 'gs')
+
+                for t in range(len(I_low_f)):
+                    axs.plot(I_low_f[t], Q_low_f[t], ',')
+                    axs.plot(It_derot[t], Qt_derot[t], ',')
+
+                axs.axis('equal')
+                axs.set_xlabel('I[V]')
+                axs.set_ylabel('Q[V]')
+                axs.grid()
+
+                fig.savefig(kid+'-'+temp+'-'+atten+'-'+mode+'-low.png')
+                close(fig)
+                                
+            elif mode == 'off':
+                
                 xr_low, didq_mag_low = self.calculate_df(I_low_f, Q_low_f, hdr_low)
 
-            elif psd_type == 'phase':
-                I0 = hdr_low['IF0']
-                Q0 = hdr_low['QF0']
+                """
+                print('F 0   O F F   R E S O N A N C E')
+                I0_off = Is_h[np.where(f_s21 >= f0)[0][0]]
+                Q0_off = Qs_h[np.where(f_s21 >= f0)[0][0]]
 
-                if mode == 'on':
-                    self._xc, self._yc, self._theta, Is_derot, Qs_derot = get_rot_iq_circle(f0, I0, Q0, f_s21, Is_h, Qs_h, f0_thresh=5e4)
+                I0_off_derot = (I0_off - self._xc)*np.cos(-self._theta)-(Q0_off - self._yc)*np.sin(-self._theta)
+                Q0_off_derot = (I0_off - self._xc)*np.sin(-self._theta)+(Q0_off - self._yc)*np.cos(-self._theta)
 
-                xr_low = derot_phase(self._xc, self._yc, self._theta, I_low_f, Q_low_f)
+                add_rot = np.arctan2(Q0_off_derot, I0_off_derot)
+                f0_on = self.data['ts'][kid][temp][atten]['s21_hr']['F0FOUND']
+                print(f0, f0_on, I0_off_derot, Q0_off_derot, add_rot)
+                
+                xr_low, It_derot, Qt_derot, _ = df_from_derot_circle(self._xc, self._yc, self._theta, I_low_f, Q_low_f, self.kid_mdl, f0_on, name='low', mode='off', add_rot=add_rot)
+                """
 
-            freq_low, psd_low = get_psd(np.array(xr_low), fs)
+                """
+                fig, axs = subplots(1, 1, figsize=(20, 12))
+                axs.plot(Is_h, Qs_h, 'k.-')
+                axs.plot(I0_off, Q0_off, 'gs')
+                axs.plot(self.Is_derot, self.Qs_derot, 'r.-')
 
-            # High-frequency PSD
-            # -----------------------------------------------------
-            I_high = self.data['ts'][kid][temp][atten]['I_'+mode][1]
-            Q_high = self.data['ts'][kid][temp][atten]['Q_'+mode][1]
-            I_high_f, Q_high_f = [], []
-            for i in range(len(I_high)):
-                if not i in ignore[1]:
-                    I_high_f.append(I_high[i])
-                    Q_high_f.append(Q_high[i])
+                axs.plot(I0_off_derot, Q0_off_derot, 'gs')
 
-            print('High-freq samples: ', len(I_high_f))
+                for t in range(len(I_low_f)):
+                    axs.plot(I_low_f[t], Q_low_f[t], ',')
+                    axs.plot(It_derot[t], Qt_derot[t], ',')
 
-            hdr_high = self.data['ts'][kid][temp][atten]['hdr_'+mode][1]
-            fs = hdr_high['SAMPLERA']
-            f0 = hdr_high['SYNTHFRE']
-            print('Sample frequency: ', fs)
-            print('Resonance frequency [SYNTHFRE]: ', f0)
+                    #figt, axst = subplots(1, 1, figsize=(20,12))
+                    #axst.plot(xr_low[t])
+                    #figt.savefig(kid+'-'+temp+'-'+atten+'-'+mode+'-ts-'+str(t)+'-low.png')
+                    #close(figt)                    
 
-            if psd_type == 'df':
+                axs.axis('equal')
+                axs.set_xlabel('I[V]')
+                axs.set_ylabel('Q[V]')
+                axs.grid()
+
+                fig.savefig(kid+'-'+temp+'-'+atten+'-'+mode+'-low-off.png')
+                close(fig)
+                """
+
+        elif psd_type == 'phase':
+
+            I0 = hdr_low['IF0']
+            Q0 = hdr_low['QF0']
+
+            if mode == 'on':
+                self._xc, self._yc, self._theta, self.Is_derot, self.Qs_derot, self.kid_mdl = get_rot_iq_circle(f0, I0, Q0, f_s21, Is_h, Qs_h, f_s21, s21_h, f0_thresh=5e4)
+
+            xr_low = derot_phase(self._xc, self._yc, self._theta, I_low_f, Q_low_f)
+
+        freq_low, psd_low = get_psd(np.array(xr_low), fs)
+
+        # High-frequency PSD
+        # -----------------------------------------------------
+        I_high = self.data['ts'][kid][temp][atten]['I_'+mode][1]
+        Q_high = self.data['ts'][kid][temp][atten]['Q_'+mode][1]
+
+        I_high_f, Q_high_f = [], []
+        for i in range(len(I_high)):
+            if not i in ignore[1]:
+                I_high_f.append(I_high[i])
+                Q_high_f.append(Q_high[i])
+
+        print('High-freq samples: ', len(I_high_f))
+
+        hdr_high = self.data['ts'][kid][temp][atten]['hdr_'+mode][1]
+        fs = hdr_high['SAMPLERA']
+        f0 = hdr_high['SYNTHFRE']
+
+        print('Sample frequency: ', fs)
+        print('Resonance frequency [SYNTHFRE]: ', f0)
+
+        if psd_type == 'df':
+
+            if mode == 'on':
+                
+                xr_high, It_derot, Qt_derot, self.phase_ref_high = df_from_derot_circle(self._xc, self._yc, self._theta, I_high_f, Q_high_f, self.kid_mdl, f0, name='high')
+
+                fig, axs = subplots(1, 1, figsize=(20, 12))
+                axs.plot(Is_h, Qs_h, 'k.-')
+                axs.plot(self.Is_derot, self.Qs_derot, 'r.-')
+
+                for t in range(len(I_high_f)):
+                    axs.plot(I_high_f[t], Q_high_f[t], ',')
+                    axs.plot(It_derot[t], Qt_derot[t], ',') 
+
+                axs.axis('equal')
+                axs.set_xlabel('I[V]')
+                axs.set_ylabel('Q[V]')
+                axs.grid()
+
+                fig.savefig(kid+'-'+temp+'-'+atten+'-'+mode+'-high.png')
+                close(fig)
+                
+            elif mode == 'off':
+                
                 xr_high, didq_mag_high = self.calculate_df(I_high_f, Q_high_f, hdr_high)
 
-            elif psd_type == 'phase':
-                xr_high = derot_phase(self._xc, self._yc, self._theta, I_high_f, Q_high_f)
+                """
+                print('F 0   O F F   R E S O N A N C E')
+                I0_off = Is_h[np.where(f_s21 >= f0)[0][0]]
+                Q0_off = Qs_h[np.where(f_s21 >= f0)[0][0]]
 
-            freq_high, psd_high = get_psd(np.array(xr_high), fs)
+                I0_off_derot = (I0_off - self._xc)*np.cos(-self._theta)-(Q0_off - self._yc)*np.sin(-self._theta)
+                Q0_off_derot = (I0_off - self._xc)*np.sin(-self._theta)+(Q0_off - self._yc)*np.cos(-self._theta)
 
-            f, psd = mix_psd([freq_low, freq_high], [psd_low, psd_high])
+                add_rot = np.arctan2(Q0_off_derot, I0_off_derot)
+                f0_on = self.data['ts'][kid][temp][atten]['s21_hr']['F0FOUND']
+                print(f0, f0_on, I0_off_derot, Q0_off_derot, add_rot)
 
-            return f, psd, (xr_low, xr_high)
+                xr_high, It_derot, Qt_derot, _ = df_from_derot_circle(self._xc, self._yc, self._theta, I_high_f, Q_high_f, self.kid_mdl, f0_on, name='high', mode='off', add_rot=add_rot)
+                """
+               
+        elif psd_type == 'phase':
 
-        except Exception as e:
-            msg('Data not available.\n'+str(e), 'fail')
-            return -1
+            xr_high = derot_phase(self._xc, self._yc, self._theta, I_high_f, Q_high_f)
+
+        freq_high, psd_high = get_psd(np.array(xr_high), fs)
+
+        f, psd = mix_psd([freq_low, freq_high], [psd_low, psd_high])
+
+        return f, psd, (xr_low, xr_high)
+
+        #except Exception as e:
+        #    msg('Data not available.\n'+str(e), 'fail')
+        #    return -1
 
     def despike(self, kid=None, temp=None, atten=None, ignore=[[0,1], [0]], \
                 win_size=350, sigma_thresh=3.5, peak_pts=4, **kwargs):
@@ -2325,7 +2524,6 @@ class Homodyne:
         temps = self._get_temps_to_sweep(None, kids[0], mode='vna')
 
         # It should be only the defined temperatures.
-
         for t, temp in enumerate(temps):
             worksheet = workbook.add_worksheet(temp)
             block = 0
@@ -2338,7 +2536,7 @@ class Homodyne:
                 worksheet.write(1, 3*block+2, 'Qc', bold)
                 worksheet.write(1, 3*block+3, 'Qr', bold)
                 worksheet.merge_range(0, 3*block+1, 0, 3*block+3, kid, bold)
-                print(temp, kid)
+
                 attens = self._get_atten_to_sweep(None, temp, kid, mode='vna')
 
                 if k == 0:
@@ -2356,17 +2554,16 @@ class Homodyne:
                         worksheet.write(col+2, 0, atten, bold)
 
                     try:
-                        f0 = self.data['vna'][kid][temp][atten]['fit']['fr']
+                        f0 = self.data['vna'][kid][temp][atten]['fit'][0]['fr']
 
-                        qi = self.data['vna'][kid][temp][atten]['fit']['Qi']
+                        qi = self.data['vna'][kid][temp][atten]['fit'][0]['Qi']
                         worksheet.write(col+2, 3*block+1, qi)
-                        qc = self.data['vna'][kid][temp][atten]['fit']['Qc']
+                        qc = self.data['vna'][kid][temp][atten]['fit'][0]['Qc']
                         worksheet.write(col+2, 3*block+2, qc)
-                        qr = self.data['vna'][kid][temp][atten]['fit']['Qr']
+                        qr = self.data['vna'][kid][temp][atten]['fit'][0]['Qr']
                         worksheet.write(col+2, 3*block+3, qr)
 
                         if float(atten[1:]) >= self.overdriven[k]:
-                            print(atten[1:], self.overdriven[k])
                             f0s.append(f0)
                             qis.append(qi)
                             qcs.append(qc)
@@ -2377,16 +2574,12 @@ class Homodyne:
                     col += 1
 
                 try:
-                    print(kid)
-                    print(qis)
                     id_max_qi = np.argmax(qis)
                     f0s_max.append(f0s[id_max_qi])
                     qis_max.append(qis[id_max_qi])
                     qcs_max.append(qcs[id_max_qi])
 
-                    print(qis_max)
-
-                except:
+                except Exception as e:
                     f0s_max.append(f0)
                     qis_max.append(-1)
                     qcs_max.append(-1)
@@ -2426,7 +2619,8 @@ class Homodyne:
 
                 block += 1
 
-            np.save(self.work_dir+self.project_name+'/summary', [f0s_max, qis_max, qcs_max])
+            if t == 0:
+                np.save(self.work_dir+self.project_name+'/summary', [f0s_max, qis_max, qcs_max])
 
             kid_cells = np.arange(0, 3*len(kids), 3)
             qi_max_str = ''
@@ -2518,7 +2712,7 @@ class Homodyne:
                 for single_atten in attens:
                     try:
 
-                        if float(single_atten[1:]) >= self.overdriven[k] and float(single_atten[1:]) < 56:
+                        if float(single_atten[1:]) >= self.overdriven[k]: # and float(single_atten[1:]) < 56:
 
                             f, s21 = self.data['vna'][kid][tm][single_atten]['data'][sample]
 
@@ -2534,12 +2728,24 @@ class Homodyne:
                                 dd_pts = 51
 
                             s21_mag = 20*np.log10(np.abs(s21))
-                            s21_sm = savgol_filter(s21_mag, dd_pts, 3)
+                            
+                            s21_baseline = np.concatenate((s21_mag[:baseline_lims[0]], s21_mag[-baseline_lims[1]:]))
+                            f_baseline = np.concatenate((f[:baseline_lims[0]], f[-baseline_lims[1]:]))
+                            
+                            base_interp = scipy.interpolate.interp1d(f_baseline, s21_baseline)
+                            fit_baseline = base_interp(f)
 
-                            baseline = np.mean(np.concatenate((s21_mag[:baseline_lims[0]], s21_mag[baseline_lims[1]:])))
+                            s21_clear = s21_mag - fit_baseline
+
+                            s21_sm = savgol_filter(s21_clear, dd_pts, 3)
                             min_s21 = np.min(s21_sm)
 
-                            dd = np.abs(baseline-min_s21)
+                            #figure()
+                            #print(baseline_lims)
+                            #plot(f, s21_sm)
+
+                            dd = np.abs(min_s21)
+                            #print(dd)
                             dds.append(dd)
 
                             extra_att = self.data['vna'][kid][tm][single_atten]['header'][0]['ATT_UC'] + \
@@ -2574,23 +2780,27 @@ class Homodyne:
                 except:
                     pass
 
+                # D I P   D E P T H S
+                self._create_diry(self.work_dir+self.project_name+'/dip_depths')
+                np.save(self.work_dir+self.project_name+'/dip_depths/dip_depths_'+kid+'-'+tm, [atts_num, dds])
+
             if xg == 1 and yg == 1:
                 ax_max.plot(np.array(f0max)*1e-6, max_dd, 'ks-')
 
                 for m in range(len(max_dd)):
-                    ax_max.text( f0max[m]*1e-6, max_dd[m]-0.1, 'K'+str(m).zfill(3) )
+                    ax_max.text( f0max[m]*1e-6, max_dd[m]-0.01, 'K'+str(m).zfill(3) )
 
             elif xg == 1:
                 ax_max[i].plot(np.array(f0max)*1e-6, max_dd, 'ks-')
 
                 for m in range(len(max_dd)):
-                    ax_max[i].text( f0max[m]*1e-6, max_dd[m]-0.1, 'K'+str(m).zfill(3) )
+                    ax_max[i].text( f0max[m]*1e-6, max_dd[m]-0.01, 'K'+str(m).zfill(3) )
             
             else:
                 ax_max[j, i].plot(np.array(f0max)*1e-6, max_dd, 'ks-')
 
                 for m in range(len(max_dd)):
-                    ax_max[j, i].text( f0max[m]*1e-6, max_dd[m]-0.1, 'K'+str(m).zfill(3) )
+                    ax_max[j, i].text( f0max[m]*1e-6, max_dd[m]-0.01, 'K'+str(m).zfill(3) )
 
             if len(n_temps) > 1:
                 if self.data_type.lower() == 'dark':
@@ -2762,7 +2972,7 @@ class Homodyne:
                                     # Get the attenuations
                                     extra_att = self.data['vna'][kid][tmp][att]['header'][0]['ATT_UC'] + \
                                                 self.data['vna'][kid][tmp][att]['header'][0]['ATT_C'] + \
-                                                self.data['vna'][kid][tmp][att]['header'][0]['ATT_RT']
+                                                self.data['vna'][kid][tmp][att]['header'][0]['ATT_RT'] 
                                                 # This should be commented just for RV2-Chip 2
 
                                     #print(self.data['vna'][kid][tmp][att]['header'][0]['ATT_UC'])
@@ -3037,11 +3247,18 @@ class Homodyne:
                 tmp = self._get_temps_to_sweep(temp, kid, mode='ts')[0]
                 att = self._get_atten_to_sweep(atten[k2], tmp, kid, mode='ts')[0]
 
-                low_cols.append( len(self.data['ts'][kid][tmp][att]['I_on'][0]) )
-                high_cols.append( len(self.data['ts'][kid][tmp][att]['I_on'][1]) )
+                if att in self.data['ts'][kid][tmp]:
+                    low_cols.append( len(self.data['ts'][kid][tmp][att]['I_on'][0]) )
+                    high_cols.append( len(self.data['ts'][kid][tmp][att]['I_on'][1]) )
+
+                else:
+                    low_cols.append(None)
+                    high_cols.append(None)
 
             xl = len(kids)
             yl = np.max(low_cols)
+
+            #print()
 
             fig_I_low, ax_I_low = subplots(xl, yl, sharey='row', figsize=(20,12))
             subplots_adjust(left=0.1, right=0.99, top=0.99, bottom=0.08, hspace=0.1, wspace=0.035)
@@ -3249,7 +3466,7 @@ class Homodyne:
                 figs_Q[c].savefig(self.work_dir+self.project_name+'/fit_psd_results/'+kids_name+tmp+'-'+att+'/Q_high-ts-'+fig_name+'-'+str(c)+'.png')
                 close(figs_Q[c])
 
-            close('all')
+            close("all")
 
     def plot_all_s21_kids(self, kid, temp, atten, sample=0, over_attens=True, data_source='vna', cmap='jet', fig_name=None):
         """
@@ -3413,6 +3630,7 @@ class Homodyne:
 
         fig.savefig(self.work_dir+self.project_name+'/fit_res_results/summary_plots/'+fig_name+'.png')
 
+
     def plot_s21_kid(self, kid, temp=None, atten=None, sample=0, data_source='vna', fit=False):
         """
         Plot all the S21 sweeps for a given resonator.
@@ -3555,6 +3773,7 @@ class Homodyne:
                     kids.append(k)
         
         kids = sorted(kids)
+
         return kids
 
     def _get_temps_to_sweep(self, temp, kid=None, mode='vna', vna_type='seg'):

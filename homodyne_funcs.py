@@ -84,7 +84,7 @@ def get_psd(df, fs, method='mean'):
     ----------
     """
 
-    psd = [signal.periodogram(df[i], fs)[1]  for i in range(len(df))]
+    psd = [signal.periodogram(df[i], fs)[1] for i in range(len(df))]
     freqs = signal.periodogram(df[0], fs)[0]
 
     if method == 'mean':
@@ -156,7 +156,7 @@ def fit_mix_psd(f, psd_mix, f0, Qr, trim_range=[0.2, 9e4], plot_name="", n_pts=5
         print('---------------------')
         msg(f'Qr: {Qr:.0f}', 'info')
         msg(f'f0: {f0:.0f} Hz', 'info')
-        amp_noise = np.median(psd_mix[-20:-5])
+        amp_noise = np.median(psd_trim[-20:-5])
         msg(f'amp [not used]: {amp_noise:.3f} [Hz^2/Hz]', 'info')
 
         # P E R F O R M   T H E   F I T
@@ -187,9 +187,9 @@ def fit_mix_psd(f, psd_mix, f0, Qr, trim_range=[0.2, 9e4], plot_name="", n_pts=5
         # TLS noise
         tls = tls_noise(fm, fit_psd_obj.tls_a, fit_psd_obj.tls_b, fit_psd_obj.tau, Qr, f0)
 
-        # Select frequencies below 1kHz.
-        gr = gr[fm < 1000]
-        tls = tls[fm < 1000]
+        # Select frequencies below 100Hz.
+        gr = gr[fm < 100]
+        tls = tls[fm < 100]
         # Get GR-TLS intersection
         f_knee = fm[np.argmin(np.abs(gr-tls))]
         
@@ -333,12 +333,20 @@ def get_homodyne_data(directory, avoid=[[], []]):
 
     s21 = sweep_I + 1j*sweep_Q
 
-    # Get the PSD
+    # High resolution sweep
+    sweep_fits_high = fits.getdata(os.path.join(directory, sweep_hr_path))
+    f_s21_high = sweep_fits_high.field(0)
+    sweep_I_high = sweep_fits_high.field(1)
+    sweep_Q_high = sweep_fits_high.field(2)
+
+    s21_high = sweep_I_high + 1j*sweep_Q_high
+
+    # Get the noise
     (I_low_on, Q_low_on), (I_high_on, Q_high_on), (ts_low_on, ts_high_on), (hr_low_on, hr_high_on) = get_noise(directory, timestream_on, avoid=avoid)
     (I_low_off, Q_low_off), (I_high_off, Q_high_off), (ts_low_off, ts_high_off), (hr_low_off, hr_high_off) = get_noise(directory, timestream_off, avoid=avoid)
 
     return (f_s21, s21, sweep_hdr), (ts_low_on, I_low_on, Q_low_on, hr_low_on), (ts_high_on, I_high_on, Q_high_on, hr_high_on), \
-    (ts_low_off, I_low_off, Q_low_off, hr_low_off), (ts_high_off, I_high_off, Q_high_off, hr_high_off)
+    (ts_low_off, I_low_off, Q_low_off, hr_low_off), (ts_high_off, I_high_off, Q_high_off, hr_high_off), (f_s21_high, s21_high)
 
 # Mix high and low PSD data
 def mix_psd(freqs, psd, xp=800):
@@ -458,7 +466,8 @@ def get_noise_from_single_file(path, deglitch=False, avoid=[[0, 1], []], **kwarg
 
     return tm, Id, Qd, hdr
 
-def get_rot_iq_circle(f0, I0, Q0, fs, Is, Qs, f0_thresh=8e4):
+
+def get_rot_iq_circle(f0, I0, Q0, fs, Is, Qs, f_high, s21_high, f0_thresh=8e4):
     """
     Get rotation angle of IQ circle.
     Parameters
@@ -484,16 +493,56 @@ def get_rot_iq_circle(f0, I0, Q0, fs, Is, Qs, f0_thresh=8e4):
     Is_derot = (Is - xc)*np.cos(-theta)-(Qs - yc)*np.sin(-theta)
     Qs_derot = (Is - xc)*np.sin(-theta)+(Qs - yc)*np.cos(-theta)
 
+    I_high = s21_high.real
+    Q_high = s21_high.imag
+    Is_derot_high = (I_high - xc)*np.cos(-theta)-(Q_high - yc)*np.sin(-theta)
+    Qs_derot_high = (I_high - xc)*np.sin(-theta)+(Q_high - yc)*np.cos(-theta)
+
+    phase = np.unwrap(np.arctan2(Qs_derot_high, Is_derot_high))
+
+    if np.min(phase) > 0:
+        phase = -2*np.pi + phase
+    elif np.max(phase) < 0:
+        phase = phase + 2*np.pi
+
+    phase_sm = savgol_filter(phase, 11, 3) # 11, 3
+
+
+    print('Dummy')
+    ioff()
+    plot([0], [0])
+    show()
+       
+    ioff()
+    fig, ax = subplots(1, 1)
+    ax.plot(f_high, phase, 'r.-')
+    ax.plot(f_high, phase_sm, 'k.-')
+
+    
+    f_mask = np.abs(fs - f0) < 3*f0_thresh
+
+    kid_mdl = interpolate.interp1d(phase_sm[f_mask], f_high[f_mask], fill_value='extrapolate')
+
+    I0_derot = (I0 - xc)*np.cos(-theta)-(Q0 - yc)*np.sin(-theta)
+    Q0_derot = (I0 - xc)*np.sin(-theta)+(Q0 - yc)*np.cos(-theta)
+
+    phase0 = np.arctan2(Q0_derot, I0_derot)  
+    
+    ax.plot(kid_mdl(phase0), phase0, 'ms')
+    show()
+
     """
-    figure()
-    plot(Is[sel], Qs[sel], 'b.')
-    plot(Is, Qs)
-    plot(Is_derot, Qs_derot)
-    plot(Is_derot[sel], Qs_derot[sel], 'r.')
-    savefig('FigureX')
+    fig, axs = subplots(1, 1, figsize=(20,12))
+    axs.plot(fs, phase, 'b.-')
+    axs.set_xlabel('Frequency [Hz]')
+    axs.set_ylabel('Phase')
+    phase_a = np.linspace(phase[0], phase[-1], 2000)
+    axs.plot(kid_mdl(phase_a), phase_a, 'r')
+    fig.savefig('IQ-phase.png')
+    close(fig)
     """
     
-    return xc, yc, theta, Is_derot, Qs_derot
+    return xc, yc, theta, Is_derot, Qs_derot, kid_mdl
 
 def derot_phase(xc, yc, theta, I, Q):
     """
@@ -516,11 +565,63 @@ def derot_phase(xc, yc, theta, I, Q):
 
         phase = np.arctan2(Q_derot, I_derot)
         phases.append(phase)
-
-        """
-        figure(str(i))
-        plot(phase)
-        savefig(str(i))
-        """
         
     return phases
+
+
+def df_from_derot_circle(xc, yc, theta, I, Q, kid_mdl, f0, name='', mode='on', add_rot=0):
+    """
+    Derotate IQ circle and get interpolated df.
+    """
+
+    """
+    fig, axs = subplots(1, 1, figsize=(20,12))
+    axs.set_xlabel('Frequency [Hz]')
+    axs.set_ylabel('Phase')
+    phase_a = np.linspace(2, -4, 2000)
+    axs.plot(kid_mdl(phase_a)-f0, phase_a, 'r.-')
+    axs.set_title(mode)
+    """
+    
+    print('D E R O T A T I O N !')
+    print('-----------------------')
+    print(xc, yc, theta)
+    print('-----------------------')
+
+    df_derot = []
+    It, Qt = [], []
+    refs = []
+    for i in range(len(I)):
+        I_derot = (I[i] - xc)*np.cos(-theta) - (Q[i] - yc)*np.sin(-theta)
+        Q_derot = (I[i] - xc)*np.sin(-theta) + (Q[i] - yc)*np.cos(-theta)
+
+        refs.append(np.arctan2(np.median(Q_derot), np.median(I_derot)))
+
+        """
+        if mode == 'on':
+            df = kid_mdl(np.arctan2(Q_derot, I_derot)) - f0
+        
+        elif mode == 'off':
+            print(np.mean(np.arctan2(Q_derot, I_derot), att_rot, '<<<---'))
+            df = kid_mdl(np.arctan2(Q_derot, I_derot) + att_rot ) - f0
+        """
+             
+        #print(add_rot, ' A D D   R O T')
+        #print(np.mean(np.arctan2(Q_derot, I_derot)), add_rot, '<<<--- A D D   R O T')
+        df = kid_mdl(np.arctan2(Q_derot, I_derot) - add_rot) - f0
+
+        #axs.plot(kid_mdl(np.arctan2(Q_derot, I_derot) - add_rot) - f0, np.arctan2(Q_derot, I_derot) - add_rot, 'c.')
+
+        df_derot.append(df)
+
+        It.append(I_derot)
+        Qt.append(Q_derot)
+
+    """
+    fig.savefig('phase-test-'+name+'.png')
+    close(fig)
+    """ 
+
+    ref = np.mean(refs)
+    
+    return df_derot, It, Qt, ref 

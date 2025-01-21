@@ -376,22 +376,22 @@ for s, step in enumerate(TASKS):
             msg('Error despiking timestreams', 'fail')
 
         if flag_plot_ts:
-            try:
-                msg('Generating timestream plots...', 'ok')
+            #try:
+            msg('Generating timestream plots...', 'ok')
 
-                kids = h._get_kids_to_sweep(kids, mode='ts')
-                tmps = []
-                for kid in kids:
-                    tps = h._get_temps_to_sweep(temps, kid, mode='ts')
-                    if len(tps) > len(tmps):
-                        tmps = tps 
-                
-                for tmp in tps:
-                    h.plot_ts_summary(kids, tmp, **plot_args)
-        
-                msg('Done', 'ok')
-            except Exception as e:
-                msg('Error building ts plots.\n'+str(e), 'fail')
+            kids = h._get_kids_to_sweep(kids, mode='ts')
+            tmps = []
+            for kid in kids:
+                tps = h._get_temps_to_sweep(temps, kid, mode='ts')
+                if len(tps) > len(tmps):
+                    tmps = tps 
+            
+            for tmp in tps:
+                h.plot_ts_summary(kids, tmp, **plot_args)
+    
+            msg('Done', 'ok')
+            #except Exception as e:
+            #    msg('Error building ts plots.\n'+str(e), 'fail')
 
     # ---> Plot ts
     elif task_name == "plot_ts":
@@ -446,12 +446,12 @@ for s, step in enumerate(TASKS):
             elif p == 'smooth_params':
                 the_args['smooth_params'] = task_params['smooth_params']
 
-        try:
-            msg('Generating PSDs...', 'ok')
-            h.get_all_psd(kids, temps, atts, **the_args)
-            msg('Done', 'ok')
-        except Exception as e:
-            msg('Error getting the PSD for defined KIDs.\n'+str(e), 'fail')
+        #try:
+        msg('Generating PSDs...', 'ok')
+        h.get_all_psd(kids, temps, atts, **the_args)
+        msg('Done', 'ok')
+        #except Exception as e:
+        #    msg('Error getting the PSD for defined KIDs.\n'+str(e), 'fail')
 
     # ---> Get responsivity
     elif task_name == "responsivity":
@@ -494,7 +494,7 @@ for s, step in enumerate(TASKS):
 
         #try:
         msg('Generating the responsivity...', 'ok')
-        h.get_responsivity(kids, **the_args)
+        h.get_responsivity(kids, temps, **the_args)
         msg('Done', 'ok')
         #except Exception as e:
         #    msg('Error calculating the responsivity.\n'+str(e), 'fail')
