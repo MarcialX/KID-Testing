@@ -168,6 +168,7 @@ class Homodyne:
             self._create_diry(self.work_dir+self.project_name+'/fit_psd_dict')
 
             self._create_diry(self.work_dir+self.project_name+'/backup_data')
+            self._create_diry(self.work_dir+self.project_name+'/backup_data/despike')
 
         self.add_in_atten = add_in_att
         self.add_out_atten = add_out_att
@@ -193,6 +194,7 @@ class Homodyne:
         self.phase_ref, self.phase_ref_high = 0, 0
 
         msg('Done', 'ok')
+
 
     def load_data(self, path, w=0.25, only_vna=False, expected=None):
         """
@@ -365,6 +367,7 @@ class Homodyne:
 
         return data
 
+
     def save_proj(self, filename=None):
         """
         Save analysis in a numpy file.
@@ -387,6 +390,7 @@ class Homodyne:
                                                                                 self.sample])
         msg('Done :)', 'ok')
 
+
     def load_proj(self, filename=None):
         """
         Load a saved project.
@@ -407,6 +411,7 @@ class Homodyne:
         msg('Done :)', 'ok')
 
         return data, data_diry, setup
+
 
     def fit_vna_resonators(self, kid=None, temp=None, atten=None, sample=0, complete=True, n=3.5, **kwargs):
         """
@@ -559,16 +564,22 @@ class Homodyne:
                 Qc = self.data['vna'][kid][temp][atten]['fit'][sample]['Qc']
                 Qi = self.data['vna'][kid][temp][atten]['fit'][sample]['Qi']
 
+
+                if self.data_type.lower() == 'dark':
+                    temp_subfix = 'mK'
+                elif self.data_type.lower() == 'blackbody':
+                    temp_subfix = 'K'
+
                 if 'Qr_err' in self.data['vna'][kid][temp][atten]['fit'][sample]:
                     Qr_err = self.data['vna'][kid][temp][atten]['fit'][sample]['Qr_err']
                     Qc_err = self.data['vna'][kid][temp][atten]['fit'][sample]['Qc_err']
                     Qi_err = self.data['vna'][kid][temp][atten]['fit'][sample]['Qi_err']
-
+                    
                     ax_sweep.text(f[0], np.min(20*np.log10(np.abs(s21_fit))) + (np.max(20*np.log10(np.abs(s21_fit))) - \
-                    np.min(20*np.log10(np.abs(s21_fit))) )/2, f'{kid}\nT: {temp[1:]} mK\nA: {atten[1:]}dB\nF0: {fr/1e6:.2f} MHz\nQr: {round(Qr, 0):,.0f}+/-{round(Qr_err, 0):,.0f} \nQc: {round(Qc, 0):,.0f}+/-{round(Qc_err, 0):,.0f} \nQi: {round(Qi, 0):,.0f}+/-{round(Qi_err, 0):,.0f}' )
+                    np.min(20*np.log10(np.abs(s21_fit))) )/2, f'{kid}\nT: {temp[1:]} {temp_subfix}\nA: {atten[1:]}dB\nF0: {fr/1e6:.2f} MHz\nQr: {round(Qr, 0):,.0f}+/-{round(Qr_err, 0):,.0f} \nQc: {round(Qc, 0):,.0f}+/-{round(Qc_err, 0):,.0f} \nQi: {round(Qi, 0):,.0f}+/-{round(Qi_err, 0):,.0f}' )
                 else:
                     ax_sweep.text(f[0], np.min(20*np.log10(np.abs(s21_fit))) + (np.max(20*np.log10(np.abs(s21_fit))) - \
-                    np.min(20*np.log10(np.abs(s21_fit))) )/2, f'{kid}\nT: {temp[1:]} mK\nA: {atten[1:]}dB\nF0: {fr/1e6:.2f} MHz\nQr: {round(Qr, 0):,.0f} \nQc: {round(Qc, 0):,.0f} \nQi: {round(Qi, 0):,.0f}' )
+                    np.min(20*np.log10(np.abs(s21_fit))) )/2, f'{kid}\nT: {temp[1:]} {temp_subfix}\nA: {atten[1:]}dB\nF0: {fr/1e6:.2f} MHz\nQr: {round(Qr, 0):,.0f} \nQc: {round(Qc, 0):,.0f} \nQi: {round(Qi, 0):,.0f}' )
 
                 ax_sweep.grid()
 
@@ -600,6 +611,7 @@ class Homodyne:
                 ax_err, ax_iq, ax_sweep = None, None, None
 
             del fitRes[k]
+
 
     def merge_fit_res(self, kid=None, temp=None, atten=None, samples=None):
         """
@@ -644,6 +656,7 @@ class Homodyne:
 
                     except:
                         print('No fit in: ', kid, tmp, att)
+
 
     def find_overdriven_atts(self, temp, sample=0, thresh=0.7):
         """
@@ -762,6 +775,7 @@ class Homodyne:
         self._create_od_fig(fig, ax)
         ion()
 
+
     def _create_od_fig(self, fig, ax):
         """
         Create an overdriven plot.
@@ -773,6 +787,7 @@ class Homodyne:
         self._keyboard_subplot = self.fig_od.canvas.mpl_connect('key_press_event', self._key_subplot_event)
         show()
 
+
     def _onclick_subplot_event(self, event):
         """
         Subplot click event.
@@ -783,6 +798,7 @@ class Homodyne:
                     if self.over_atts_mask[i, j]:
                         self.update_overdriven_plot(i, j)
                         self.temp_att[self.n_fig_od*6+i] = self.over_atts_mtx[i, j]
+
 
     def update_overdriven_plot(self, i, j):
         """
@@ -796,6 +812,7 @@ class Homodyne:
                     self.ax_od[i, m].patch.set_facecolor('blue')
                 self.ax_od[i, m].patch.set_alpha(0.2)
         self.fig_od.canvas.draw_idle()
+
 
     def _key_subplot_event(self, event):
         """
@@ -818,6 +835,7 @@ class Homodyne:
                     self.temp_att[self.n_fig_od*6+i] = self.over_atts_mtx[i, 2]
 
                 msg('Undoing changes', 'info')
+
 
     def find_kids(self, f, s21, down_factor=35, baseline_params=(501, 5), Qr_lim=[1500, 150000], Qc_lim=[1000, 150000], inter=True):
         """
@@ -904,6 +922,7 @@ class Homodyne:
                     sel_peaks.append(f[peak])
             self.found_kids = sel_peaks
 
+
     def interactive_mode_find_kids(self, f, s21, peaks, flags):
         """
         Interactive mode to clean psd data.
@@ -934,6 +953,7 @@ class Homodyne:
         self._keyboard = self._fig.canvas.mpl_connect('key_press_event', self._key_pressed_find_kids)
 
         show()
+
 
     def update_plot_find_kids(self, freq, peaks, flags):
         """
@@ -975,6 +995,7 @@ class Homodyne:
         n_kids = np.sum(self._flags)
         summary_text = f"Resonators : {n_kids}"
         self._ax.text(0.03, 0.95, summary_text, fontsize=16, transform=self._ax.transAxes)
+
 
     def _key_pressed_find_kids(self, event, thresh=5e4):
         """
@@ -1094,6 +1115,7 @@ class Homodyne:
                 self._fig.canvas.draw_idle()
                 msg('Undoing changes', 'info')
 
+
     def _onclick_find_kids(self, event, thresh=5e4):
         """
         On click event to select lines
@@ -1141,6 +1163,7 @@ class Homodyne:
 
                     self._fig.canvas.draw_idle()
 
+
     def split_continuous_by_kid(self, temp=None, atten=None, lws=6, Qr=1000):
         """
         Divide the VNA by the found detectors. Under construction...
@@ -1162,6 +1185,7 @@ class Homodyne:
             plot(f_sample, 20*np.log10(np.abs(s21_sample)))
         """
 
+
     def get_all_psd(self, kid, temp, atten, **kwargs):
         """
         Get the PSD for all the kid/temp/atten defined.
@@ -1179,7 +1203,7 @@ class Homodyne:
         # Key arguments
         # ----------------------------------------------
         # Timestreams to ignore
-        ignore = kwargs.pop('ignore', [[0,1], [0,1]])
+        ignore = kwargs.pop('ignore', {}) #[[0,1], [0,1]])
         # Fit PSD?
         fit_psd = kwargs.pop('fit_psd', True)
         # PSD type
@@ -1190,6 +1214,8 @@ class Homodyne:
         n_pts = kwargs.pop('n_pts', 500)
         # Interactive mode
         inter = kwargs.pop('inter', True)
+        # Intersection frequency [Hz]
+        f_joint = kwargs.pop('f_joint', 800)
         # Savgol smoothing values
         smooth_params = kwargs.pop('smooth_params', [21, 3])
         # ----------------------------------------------
@@ -1197,14 +1223,13 @@ class Homodyne:
         kids = self._get_kids_to_sweep(kid, mode='ts')
         for kid in kids:
             msg(kid, 'info')
-
             temps = self._get_temps_to_sweep(temp, kid, mode='ts')
             for tmp in temps:
-
                 attens = self._get_atten_to_sweep(atten, tmp, kid, mode='ts')
                 for att in attens:
                     self.get_psd_on_off(kid, tmp, att, ignore=ignore, fit=fit_psd, plot_fit=plot_fit, \
-                                        n_pts=n_pts, inter=inter, smooth_params=smooth_params, psd_type=psd_type)
+                                        n_pts=n_pts, inter=inter, smooth_params=smooth_params, psd_type=psd_type, f_joint=f_joint)
+
 
     def get_responsivity(self, kid, tmt, **kwargs):
         """
@@ -1296,11 +1321,11 @@ class Homodyne:
         smooth = kwargs.pop('smooth', False)
         # Savgol smoothing values
         smooth_params = kwargs.pop('smooth_params', [7, 3])
+        # Optical efficiency
+        opt_eff = kwargs.pop('opt_eff', 1)
         # ----------------------------------------------
 
         ioff()
-
-        #print('-------------->', nqp_fit_pts)
 
         if from_fit == False and method == 'min':
             if not var in ['fr', 'Qi']:
@@ -1364,8 +1389,6 @@ class Homodyne:
             print('-------------------')
 
             V = float(dims_list[0])*float(dims_list[1])*float(dims_list[2]) 
-
-            # -----------------------------
 
             for t, tm in enumerate(temps):
                 
@@ -1575,7 +1598,6 @@ class Homodyne:
                         msg('Nqp: '+str(Nqp), 'info')
 
                     elif temp_conv == 'temp':
-                        msg('Temperature: '+str(temp_conv), 'info')
                         power.append(rt)
                     
                     all_temps.append(rt)
@@ -1677,21 +1699,25 @@ class Homodyne:
                         if not np.isnan(xs_plot[c]):
                             nw_xs_plot.append(xs_plot[c])
                             nw_power.append(power[c])
-                        else:
-                            print('NAN!')
 
                     nw_xs_plot = np.array(nw_xs_plot)
                     nw_power = np.array(nw_power)
 
-                    opt_eff = 1 #0.004
+                    #opt_eff = 1 #0.004
 
                     if not custom is None:
                         color = custom[0][k]
                         mk = custom[1][k]
                         lsty = custom[2][k] 
-                        ax.plot(1e12*opt_eff*nw_power, ks*nw_xs_plot, label=kid, linestyle=lsty, marker=mk, color=color)
-                    else:                      
-                        ax.plot(1e12*opt_eff*nw_power, ks*nw_xs_plot, label=kid, linestyle=lstyle[lstyle_pointer], marker=lmarker[lstyle_pointer])
+                        if temp_conv == 'power':
+                            ax.plot(1e12*opt_eff*nw_power, ks*nw_xs_plot, label=kid, linestyle=lsty, marker=mk, color=color)
+                        else:
+                            ax.plot(nw_power, ks*nw_xs_plot, label=kid, linestyle=lsty, marker=mk, color=color)
+                    else:   
+                        if temp_conv == 'power':
+                            ax.plot(1e12*opt_eff*nw_power, ks*nw_xs_plot, label=kid, linestyle=lstyle[lstyle_pointer], marker=lmarker[lstyle_pointer])
+                        else:
+                            ax.plot(nw_power, ks*nw_xs_plot, label=kid, linestyle=lstyle[lstyle_pointer], marker=lmarker[lstyle_pointer])
 
                     if temp_conv == 'power':
                         ax.set_xlabel('Power [pW]', fontsize=18, weight='bold')
@@ -1710,7 +1736,7 @@ class Homodyne:
 
         # Save results
         np.save(self.work_dir+self.project_name+'/fit_res_dict/responsivity/responsivity-'+str(var)+'-'+temp_conv+'-'+self.data_type, S)
-        print(S)
+        #print(S)
         np.save(self.work_dir+self.project_name+'/fit_res_dict/responsivity/responsivity-powers-'+str(var)+'-'+self.data_type, pwrs)
         np.save(self.work_dir+self.project_name+'/fit_res_dict/responsivity/responsivity-temps-'+str(var)+'-'+self.data_type, tmps)
 
@@ -1723,9 +1749,9 @@ class Homodyne:
         I0 = s21.real[f_idx]
         Q0 = s21.imag[f_idx]
         
-        xc, yc, theta, Is_derot, Qs_derot, kid_mdl = get_rot_iq_circle(x, I0, Q0, f, s21.real, s21.imag, f, s21, f0_thresh=f0_thresh)
+        xc, yc, theta, Is_derot, Qs_derot, kid_mdl, phases = get_rot_iq_circle(x, I0, Q0, f, s21.real, s21.imag, f, s21, f0_thresh=f0_thresh)
 
-        print('R O T A C I O N')
+        print('R O T A T I O N')
         print(xc, yc, theta)
 
         f0_idx = np.where(f>=f0_ref)[0][0]
@@ -1745,6 +1771,7 @@ class Homodyne:
             phase_f0 = phase_f0-2*np.pi
 
         return phase_f0
+
 
     def get_all_NEP(self, kid, temp, **kwargs):
         """
@@ -1931,6 +1958,7 @@ class Homodyne:
 
         return NEP, NEP_no_corr
 
+
     def calculate_df(self, I, Q, hdr):
         """
         Get the resonance frequency shift.
@@ -1954,6 +1982,7 @@ class Homodyne:
 
         return df, didq_mag
     
+
     def get_psd_on_off(self, kid, temp, atten, **kwargs):
         """
         Get the PSD on - off for a set of resonators.
@@ -1965,7 +1994,7 @@ class Homodyne:
             Define the temperature. If 'None' take all the temperatures available.
         atten : int/list/array
             Define the attenuations. If 'None' take all the temperatures available.
-        ignore : list
+        ignore : dict
             Define the timestreams samples not used.
             First item for the low-frequency band.
             Second item for the high-frequency band.
@@ -1978,7 +2007,7 @@ class Homodyne:
         # Key arguments
         # ----------------------------------------------
         # Timestreams to ignore
-        ignore = kwargs.pop('ignore', [[0,1], [0]])
+        ignore = kwargs.pop('ignore', {}) # [[0,1], [0]])
         # Fit PSD?
         fit = kwargs.pop('fit', True)
         # PSD type
@@ -1989,6 +2018,8 @@ class Homodyne:
         n_pts = kwargs.pop('n_pts', 500)
         # Interactive mode
         inter = kwargs.pop('inter', False)
+        # Intersection frequency [Hz]
+        f_joint = kwargs.pop('f_joint', 800)
         # Savgol smoothing values
         smooth_params = kwargs.pop('smooth_params', [21, 3])
         # ----------------------------------------------
@@ -1996,9 +2027,9 @@ class Homodyne:
         name = psd_type+'-'+str(kid)+'-'+str(temp)+'-'+str(atten)
 
         self.data['ts'][kid][temp][atten]['psd'] = {}
-        f_on, psd_on, xr_on = self.calculate_psd(kid, temp, atten, mode='on', ignore=ignore, psd_type=psd_type)
+        f_on, psd_on, xr_on, phases = self.calculate_psd(kid, temp, atten, mode='on', ignore=ignore, psd_type=psd_type, f_joint=f_joint)
         self.data['ts'][kid][temp][atten]['psd']['on'] = [f_on, psd_on]
-        f_off, psd_off, xr_off = self.calculate_psd(kid, temp, atten, mode='off', ignore=ignore, psd_type=psd_type)
+        f_off, psd_off, xr_off = self.calculate_psd(kid, temp, atten, mode='off', ignore=ignore, psd_type=psd_type, f_joint=f_joint)
         self.data['ts'][kid][temp][atten]['psd']['off'] = [f_off, psd_off]
 
         #f0 = self.data['vna'][kid][temp][atten]['fit']['fr']
@@ -2023,11 +2054,13 @@ class Homodyne:
         # S A V E   P S D   O N - O F F
         # -----------------------------
         # Get PSD ON - OFF
-        
         level_on = np.mean(psd_on[np.where(f_on>40e3)[0][0] : np.where(f_on>50e3)[0][0]])
         level_off = np.mean(psd_off[np.where(f_off>40e3)[0][0] : np.where(f_off>50e3)[0][0]])
-        print('------>>>>>****', level_on)
-        print('------>>>>>****', level_off)
+        print('-----------------------------------------')
+        print('PSD LEVEL')
+        print(f'ON [40-50 kHz]: {level_on}')
+        print(f'OFF [40-50 kHz]: {level_off}')
+        print('-----------------------------------------')
 
         #psd_off = (level_on/level_off)*psd_off
         psd_mix = psd_on # - psd_off
@@ -2052,7 +2085,7 @@ class Homodyne:
 
             fit_psd_params, k_knee = fit_mix_psd(f_on, psd_mix, f0, Qr, plot_name=plot_name, \
                                                 trim_range=[0.2, 7.5e4], n_pts=n_pts, inter=inter, \
-                                                smooth_params=smooth_params)
+                                                smooth_params=smooth_params, phases=phases)
             
             self.data['ts'][kid][temp][atten]['fit_psd'] = {}
             self.data['ts'][kid][temp][atten]['fit_psd']['params'] = fit_psd_params
@@ -2120,7 +2153,8 @@ class Homodyne:
             fig.savefig(self.work_dir+self.project_name+'/fit_psd_results/'+name+'.png')
             close(fig)
 
-    def calculate_psd(self, kid, temp, atten, mode='on', ignore=[[0,1,2], [0]], psd_type='df'):
+
+    def calculate_psd(self, kid, temp, atten, mode='on', ignore={}, psd_type='df', f_joint=800):
         """
         Calculate the PSD.
         Parameters
@@ -2140,6 +2174,8 @@ class Homodyne:
         psd_type : string
             'df' resonance frequency shift.
             'phase' resonator phase.
+        f_joint : float
+            Intersection frequency [Hz] between high and low resolution data.
         ----------
         """
 
@@ -2147,204 +2183,232 @@ class Homodyne:
             msg("PSD type not valid", "fail")
             return -1
 
-        #try:
+        try:
 
-        # H O M O D Y N E   S W E E P
-        # -----------------------------------------------------
-        f_s21 = self.data['ts'][kid][temp][atten]['f']
-        s21_h = self.data['ts'][kid][temp][atten]['s21']
-        Is_h = s21_h.real
-        Qs_h = s21_h.imag
+            # H O M O D Y N E   S W E E P
+            # -----------------------------------------------------
+            f_s21 = self.data['ts'][kid][temp][atten]['f']
+            s21_h = self.data['ts'][kid][temp][atten]['s21']
+            Is_h = s21_h.real
+            Qs_h = s21_h.imag
 
-        f_high = self.data['ts'][kid][temp][atten]['f_high']
-        s21_high = self.data['ts'][kid][temp][atten]['s21_high']
+            f_high = self.data['ts'][kid][temp][atten]['f_high']
+            s21_high = self.data['ts'][kid][temp][atten]['s21_high']
 
-        # Low-frequency PSD
-        # -----------------------------------------------------
-        I_low = self.data['ts'][kid][temp][atten]['I_'+mode][0]
-        Q_low = self.data['ts'][kid][temp][atten]['Q_'+mode][0]
-        I_low_f, Q_low_f = [], []
-        for i in range(len(I_low)):
-            if not i in ignore[0]:
-                I_low_f.append(I_low[i])
-                Q_low_f.append(Q_low[i])
-
-        print('Low-freq samples: ', len(I_low_f))
-
-        hdr_low = self.data['ts'][kid][temp][atten]['hdr_'+mode][0]
-        fs = hdr_low['SAMPLERA']
-        f0 = hdr_low['SYNTHFRE']
-
-        print('Sample frequency: ', fs)
-        print('Resonance frequency [SYNTHFRE]: ', f0)
-
-        if psd_type == 'df':
-
-            I0 = hdr_low['IF0']
-            Q0 = hdr_low['QF0']
+            # Low-frequency PSD
+            # -----------------------------------------------------
+            I_low = self.data['ts'][kid][temp][atten]['I_'+mode][0]
+            Q_low = self.data['ts'][kid][temp][atten]['Q_'+mode][0]
             
+            # Ignore timestreams
+            # -----------------------------------------------------
+            ignore_keys = ignore.keys()
+
+            ignore_list = [[],[]]
+
+            if "all" in ignore_keys:
+                ignore_list = np.copy(ignore["all"])
+
+            for ign in ignore_keys:
+                if ign != "all":
+                    ign_kid = ign.split('-')
+                    if (ign_kid[0] == kid) and (ign_kid[1] == temp) and (ign_kid[2] == atten):
+                        ignore_list = [list(np.concatenate((ignore_list[0], ignore[ign][0]))), \
+                            list(np.concatenate((ignore_list[1], ignore[ign][1])))]
+                        break    
+            # -----------------------------------------------------
+
+            I_low_f, Q_low_f = [], []
+            for i in range(len(I_low)):
+                if not i in ignore_list[0]:
+                    I_low_f.append(I_low[i])
+                    Q_low_f.append(Q_low[i])
+
+            print('Low-freq samples: ', len(I_low_f))
+
+            hdr_low = self.data['ts'][kid][temp][atten]['hdr_'+mode][0]
+            fs = hdr_low['SAMPLERA']
+            f0 = hdr_low['SYNTHFRE']
+
+            print(f'Sample frequency: {fs} Hz')
+            print(f'Resonance frequency [SYNTHFRE]: {f0} Hz')
+
+            if psd_type == 'df':
+
+                I0 = hdr_low['IF0']
+                Q0 = hdr_low['QF0']
+                
+                if mode == 'on':
+
+                    print('F 0   O N   R E S O N A N C E')
+                    print('-----------------------')
+                    print(f'f0: {f0} Hz\nI0: {I0:.4f}, Q0: {Q0:.4f}')
+                    print('-----------------------')
+
+                    self._xc, self._yc, self._theta, self.Is_derot, self.Qs_derot, self.kid_mdl, phases = get_rot_iq_circle(f0, I0, Q0, f_s21, Is_h, Qs_h, f_s21, s21_h, f0_thresh=5e4)
+                    xr_low, It_derot, Qt_derot, self.phase_ref = df_from_derot_circle(self._xc, self._yc, self._theta, I_low_f, Q_low_f, self.kid_mdl, f0, name='low')
+
+                    fig, axs = subplots(1, 1, figsize=(20, 12))
+                    axs.plot(Is_h, Qs_h, 'k.-')
+                    axs.plot(I0, Q0, 'gs')
+                    axs.plot(self.Is_derot, self.Qs_derot, 'r.-')
+
+                    I0_derot = (I0 - self._xc)*np.cos(-self._theta)-(Q0 - self._yc)*np.sin(-self._theta)
+                    Q0_derot = (I0 - self._xc)*np.sin(-self._theta)+(Q0 - self._yc)*np.cos(-self._theta)
+
+                    axs.plot(I0_derot, Q0_derot, 'gs')
+
+                    for t in range(len(I_low_f)):
+                        axs.plot(I_low_f[t], Q_low_f[t], ',')
+                        axs.plot(It_derot[t], Qt_derot[t], ',')
+
+                    axs.axis('equal')
+                    axs.set_xlabel('I[V]')
+                    axs.set_ylabel('Q[V]')
+                    axs.grid()
+
+                    self._create_diry(self.work_dir+self.project_name+'/IQ-circles/')
+                    fig.savefig(self.work_dir+self.project_name+'/IQ-circles/'+kid+'-'+temp+'-'+atten+'-'+mode+'-low.png')
+                    close(fig)
+                                    
+                elif mode == 'off':
+                    
+                    xr_low, didq_mag_low = self.calculate_df(I_low_f, Q_low_f, hdr_low)
+
+                    """
+                    print('F 0   O F F   R E S O N A N C E')
+                    I0_off = Is_h[np.where(f_s21 >= f0)[0][0]]
+                    Q0_off = Qs_h[np.where(f_s21 >= f0)[0][0]]
+
+                    I0_off_derot = (I0_off - self._xc)*np.cos(-self._theta)-(Q0_off - self._yc)*np.sin(-self._theta)
+                    Q0_off_derot = (I0_off - self._xc)*np.sin(-self._theta)+(Q0_off - self._yc)*np.cos(-self._theta)
+
+                    add_rot = np.arctan2(Q0_off_derot, I0_off_derot)
+                    f0_on = self.data['ts'][kid][temp][atten]['s21_hr']['F0FOUND']
+                    print(f0, f0_on, I0_off_derot, Q0_off_derot, add_rot)
+                    
+                    xr_low, It_derot, Qt_derot, _ = df_from_derot_circle(self._xc, self._yc, self._theta, I_low_f, Q_low_f, self.kid_mdl, f0_on, name='low', mode='off', add_rot=add_rot)
+                    """
+
+                    """
+                    fig, axs = subplots(1, 1, figsize=(20, 12))
+                    axs.plot(Is_h, Qs_h, 'k.-')
+                    axs.plot(I0_off, Q0_off, 'gs')
+                    axs.plot(self.Is_derot, self.Qs_derot, 'r.-')
+
+                    axs.plot(I0_off_derot, Q0_off_derot, 'gs')
+
+                    for t in range(len(I_low_f)):
+                        axs.plot(I_low_f[t], Q_low_f[t], ',')
+                        axs.plot(It_derot[t], Qt_derot[t], ',')
+
+                        #figt, axst = subplots(1, 1, figsize=(20,12))
+                        #axst.plot(xr_low[t])
+                        #figt.savefig(kid+'-'+temp+'-'+atten+'-'+mode+'-ts-'+str(t)+'-low.png')
+                        #close(figt)                    
+
+                    axs.axis('equal')
+                    axs.set_xlabel('I[V]')
+                    axs.set_ylabel('Q[V]')
+                    axs.grid()
+
+                    fig.savefig(kid+'-'+temp+'-'+atten+'-'+mode+'-low-off.png')
+                    close(fig)
+                    """
+
+            elif psd_type == 'phase':
+
+                I0 = hdr_low['IF0']
+                Q0 = hdr_low['QF0']
+
+                if mode == 'on':
+                    self._xc, self._yc, self._theta, self.Is_derot, self.Qs_derot, self.kid_mdl, phases = get_rot_iq_circle(f0, I0, Q0, f_s21, Is_h, Qs_h, f_s21, s21_h, f0_thresh=5e4)
+
+                xr_low = derot_phase(self._xc, self._yc, self._theta, I_low_f, Q_low_f)
+
+            freq_low, psd_low = get_psd(np.array(xr_low), fs)
+
+            # High-frequency PSD
+            # -----------------------------------------------------
+            I_high = self.data['ts'][kid][temp][atten]['I_'+mode][1]
+            Q_high = self.data['ts'][kid][temp][atten]['Q_'+mode][1]
+
+            I_high_f, Q_high_f = [], []
+            for i in range(len(I_high)):
+                if not i in ignore_list[1]:
+                    I_high_f.append(I_high[i])
+                    Q_high_f.append(Q_high[i])
+
+            print('High-freq samples: ', len(I_high_f))
+
+            hdr_high = self.data['ts'][kid][temp][atten]['hdr_'+mode][1]
+            fs = hdr_high['SAMPLERA']
+            f0 = hdr_high['SYNTHFRE']
+
+            print(f'Sample frequency: {fs} Hz')
+            print(f'Resonance frequency [SYNTHFRE]: {f0} Hz')
+
+            if psd_type == 'df':
+
+                if mode == 'on':
+                    
+                    xr_high, It_derot, Qt_derot, self.phase_ref_high = df_from_derot_circle(self._xc, self._yc, self._theta, I_high_f, Q_high_f, self.kid_mdl, f0, name='high')
+
+                    fig, axs = subplots(1, 1, figsize=(20, 12))
+                    axs.plot(Is_h, Qs_h, 'k.-')
+                    axs.plot(self.Is_derot, self.Qs_derot, 'r.-')
+
+                    for t in range(len(I_high_f)):
+                        axs.plot(I_high_f[t], Q_high_f[t], ',')
+                        axs.plot(It_derot[t], Qt_derot[t], ',') 
+
+                    axs.axis('equal')
+                    axs.set_xlabel('I[V]')
+                    axs.set_ylabel('Q[V]')
+                    axs.grid()
+
+                    self._create_diry(self.work_dir+self.project_name+'/IQ-circles/')
+                    fig.savefig(self.work_dir+self.project_name+'/IQ-circles/'+kid+'-'+temp+'-'+atten+'-'+mode+'-high.png')
+                    close(fig)
+                    
+                elif mode == 'off':
+                    
+                    xr_high, didq_mag_high = self.calculate_df(I_high_f, Q_high_f, hdr_high)
+
+                    """
+                    print('F 0   O F F   R E S O N A N C E')
+                    I0_off = Is_h[np.where(f_s21 >= f0)[0][0]]
+                    Q0_off = Qs_h[np.where(f_s21 >= f0)[0][0]]
+
+                    I0_off_derot = (I0_off - self._xc)*np.cos(-self._theta)-(Q0_off - self._yc)*np.sin(-self._theta)
+                    Q0_off_derot = (I0_off - self._xc)*np.sin(-self._theta)+(Q0_off - self._yc)*np.cos(-self._theta)
+
+                    add_rot = np.arctan2(Q0_off_derot, I0_off_derot)
+                    f0_on = self.data['ts'][kid][temp][atten]['s21_hr']['F0FOUND']
+                    print(f0, f0_on, I0_off_derot, Q0_off_derot, add_rot)
+
+                    xr_high, It_derot, Qt_derot, _ = df_from_derot_circle(self._xc, self._yc, self._theta, I_high_f, Q_high_f, self.kid_mdl, f0_on, name='high', mode='off', add_rot=add_rot)
+                    """
+                
+            elif psd_type == 'phase':
+
+                xr_high = derot_phase(self._xc, self._yc, self._theta, I_high_f, Q_high_f)
+
+            freq_high, psd_high = get_psd(np.array(xr_high), fs)
+
+            f, psd = mix_psd([freq_low, freq_high], [psd_low, psd_high], f_joint=f_joint)
+
             if mode == 'on':
-
-                print('F 0   O N   R E S O N A N C E')
-                print(f0, I0, Q0)
-                self._xc, self._yc, self._theta, self.Is_derot, self.Qs_derot, self.kid_mdl = get_rot_iq_circle(f0, I0, Q0, f_s21, Is_h, Qs_h, f_s21, s21_h, f0_thresh=5e4)
-                xr_low, It_derot, Qt_derot, self.phase_ref = df_from_derot_circle(self._xc, self._yc, self._theta, I_low_f, Q_low_f, self.kid_mdl, f0, name='low')
-
-                fig, axs = subplots(1, 1, figsize=(20, 12))
-                axs.plot(Is_h, Qs_h, 'k.-')
-                axs.plot(I0, Q0, 'gs')
-                axs.plot(self.Is_derot, self.Qs_derot, 'r.-')
-
-                I0_derot = (I0 - self._xc)*np.cos(-self._theta)-(Q0 - self._yc)*np.sin(-self._theta)
-                Q0_derot = (I0 - self._xc)*np.sin(-self._theta)+(Q0 - self._yc)*np.cos(-self._theta)
-
-                axs.plot(I0_derot, Q0_derot, 'gs')
-
-                for t in range(len(I_low_f)):
-                    axs.plot(I_low_f[t], Q_low_f[t], ',')
-                    axs.plot(It_derot[t], Qt_derot[t], ',')
-
-                axs.axis('equal')
-                axs.set_xlabel('I[V]')
-                axs.set_ylabel('Q[V]')
-                axs.grid()
-
-                fig.savefig(kid+'-'+temp+'-'+atten+'-'+mode+'-low.png')
-                close(fig)
-                                
+                return f, psd, (xr_low, xr_high), phases
             elif mode == 'off':
-                
-                xr_low, didq_mag_low = self.calculate_df(I_low_f, Q_low_f, hdr_low)
+                return f, psd, (xr_low, xr_high)
 
-                """
-                print('F 0   O F F   R E S O N A N C E')
-                I0_off = Is_h[np.where(f_s21 >= f0)[0][0]]
-                Q0_off = Qs_h[np.where(f_s21 >= f0)[0][0]]
+        except Exception as e:
+            msg('Data not available.\n'+str(e), 'fail')
+            return -1
 
-                I0_off_derot = (I0_off - self._xc)*np.cos(-self._theta)-(Q0_off - self._yc)*np.sin(-self._theta)
-                Q0_off_derot = (I0_off - self._xc)*np.sin(-self._theta)+(Q0_off - self._yc)*np.cos(-self._theta)
 
-                add_rot = np.arctan2(Q0_off_derot, I0_off_derot)
-                f0_on = self.data['ts'][kid][temp][atten]['s21_hr']['F0FOUND']
-                print(f0, f0_on, I0_off_derot, Q0_off_derot, add_rot)
-                
-                xr_low, It_derot, Qt_derot, _ = df_from_derot_circle(self._xc, self._yc, self._theta, I_low_f, Q_low_f, self.kid_mdl, f0_on, name='low', mode='off', add_rot=add_rot)
-                """
-
-                """
-                fig, axs = subplots(1, 1, figsize=(20, 12))
-                axs.plot(Is_h, Qs_h, 'k.-')
-                axs.plot(I0_off, Q0_off, 'gs')
-                axs.plot(self.Is_derot, self.Qs_derot, 'r.-')
-
-                axs.plot(I0_off_derot, Q0_off_derot, 'gs')
-
-                for t in range(len(I_low_f)):
-                    axs.plot(I_low_f[t], Q_low_f[t], ',')
-                    axs.plot(It_derot[t], Qt_derot[t], ',')
-
-                    #figt, axst = subplots(1, 1, figsize=(20,12))
-                    #axst.plot(xr_low[t])
-                    #figt.savefig(kid+'-'+temp+'-'+atten+'-'+mode+'-ts-'+str(t)+'-low.png')
-                    #close(figt)                    
-
-                axs.axis('equal')
-                axs.set_xlabel('I[V]')
-                axs.set_ylabel('Q[V]')
-                axs.grid()
-
-                fig.savefig(kid+'-'+temp+'-'+atten+'-'+mode+'-low-off.png')
-                close(fig)
-                """
-
-        elif psd_type == 'phase':
-
-            I0 = hdr_low['IF0']
-            Q0 = hdr_low['QF0']
-
-            if mode == 'on':
-                self._xc, self._yc, self._theta, self.Is_derot, self.Qs_derot, self.kid_mdl = get_rot_iq_circle(f0, I0, Q0, f_s21, Is_h, Qs_h, f_s21, s21_h, f0_thresh=5e4)
-
-            xr_low = derot_phase(self._xc, self._yc, self._theta, I_low_f, Q_low_f)
-
-        freq_low, psd_low = get_psd(np.array(xr_low), fs)
-
-        # High-frequency PSD
-        # -----------------------------------------------------
-        I_high = self.data['ts'][kid][temp][atten]['I_'+mode][1]
-        Q_high = self.data['ts'][kid][temp][atten]['Q_'+mode][1]
-
-        I_high_f, Q_high_f = [], []
-        for i in range(len(I_high)):
-            if not i in ignore[1]:
-                I_high_f.append(I_high[i])
-                Q_high_f.append(Q_high[i])
-
-        print('High-freq samples: ', len(I_high_f))
-
-        hdr_high = self.data['ts'][kid][temp][atten]['hdr_'+mode][1]
-        fs = hdr_high['SAMPLERA']
-        f0 = hdr_high['SYNTHFRE']
-
-        print('Sample frequency: ', fs)
-        print('Resonance frequency [SYNTHFRE]: ', f0)
-
-        if psd_type == 'df':
-
-            if mode == 'on':
-                
-                xr_high, It_derot, Qt_derot, self.phase_ref_high = df_from_derot_circle(self._xc, self._yc, self._theta, I_high_f, Q_high_f, self.kid_mdl, f0, name='high')
-
-                fig, axs = subplots(1, 1, figsize=(20, 12))
-                axs.plot(Is_h, Qs_h, 'k.-')
-                axs.plot(self.Is_derot, self.Qs_derot, 'r.-')
-
-                for t in range(len(I_high_f)):
-                    axs.plot(I_high_f[t], Q_high_f[t], ',')
-                    axs.plot(It_derot[t], Qt_derot[t], ',') 
-
-                axs.axis('equal')
-                axs.set_xlabel('I[V]')
-                axs.set_ylabel('Q[V]')
-                axs.grid()
-
-                fig.savefig(kid+'-'+temp+'-'+atten+'-'+mode+'-high.png')
-                close(fig)
-                
-            elif mode == 'off':
-                
-                xr_high, didq_mag_high = self.calculate_df(I_high_f, Q_high_f, hdr_high)
-
-                """
-                print('F 0   O F F   R E S O N A N C E')
-                I0_off = Is_h[np.where(f_s21 >= f0)[0][0]]
-                Q0_off = Qs_h[np.where(f_s21 >= f0)[0][0]]
-
-                I0_off_derot = (I0_off - self._xc)*np.cos(-self._theta)-(Q0_off - self._yc)*np.sin(-self._theta)
-                Q0_off_derot = (I0_off - self._xc)*np.sin(-self._theta)+(Q0_off - self._yc)*np.cos(-self._theta)
-
-                add_rot = np.arctan2(Q0_off_derot, I0_off_derot)
-                f0_on = self.data['ts'][kid][temp][atten]['s21_hr']['F0FOUND']
-                print(f0, f0_on, I0_off_derot, Q0_off_derot, add_rot)
-
-                xr_high, It_derot, Qt_derot, _ = df_from_derot_circle(self._xc, self._yc, self._theta, I_high_f, Q_high_f, self.kid_mdl, f0_on, name='high', mode='off', add_rot=add_rot)
-                """
-               
-        elif psd_type == 'phase':
-
-            xr_high = derot_phase(self._xc, self._yc, self._theta, I_high_f, Q_high_f)
-
-        freq_high, psd_high = get_psd(np.array(xr_high), fs)
-
-        f, psd = mix_psd([freq_low, freq_high], [psd_low, psd_high])
-
-        return f, psd, (xr_low, xr_high)
-
-        #except Exception as e:
-        #    msg('Data not available.\n'+str(e), 'fail')
-        #    return -1
-
-    def despike(self, kid=None, temp=None, atten=None, ignore=[[0,1], [0]], \
+    def despike(self, kid=None, temp=None, atten=None, ignore={}, \
                 win_size=350, sigma_thresh=3.5, peak_pts=4, **kwargs):
         """
         Despike the timestreams.
@@ -2357,7 +2421,8 @@ class Homodyne:
         atten : int/list/array
             Define the attenuations. If 'None' take all the attenuations available.
         ignore : list
-            Define the timestreams samples not used.
+            Define the timestreams samples not used. 
+            Old definition: ignore=[[0,1], [0]]
             First item for the low-frequency band.
             Second item for the high-frequency band.
         win_size : int
@@ -2370,9 +2435,14 @@ class Homodyne:
         """
         # Key arguments
         # ----------------------------------------------
+        # Overwrite despiked data
+        overwrite = kwargs.pop('overwrite', False)
         # Verbose
         verbose = kwargs.pop('verbose', False)
         # ----------------------------------------------
+
+        # Get ignores
+        ignore_keys = ignore.keys()
 
         kids = self._get_kids_to_sweep(kid, mode='ts')
         for kid in kids:
@@ -2384,50 +2454,127 @@ class Homodyne:
                 for att in attens:
                     print('     -->', att)
                     try:
+                        # Ignore timestreams
+                        # --------------------------------------
+                        ignore_list = [[],[]]
+
+                        if "all" in ignore_keys:
+                            ignore_list = np.copy(ignore["all"])
+
+                        for ign in ignore_keys:
+                            if ign != "all":
+                                ign_kid = ign.split('-')
+                                if (ign_kid[0] == kid) and (ign_kid[1] == tmp) and (ign_kid[2] == att):
+                                    ignore_list = [list(np.concatenate((ignore_list[0], ignore[ign][0]))), \
+                                        list(np.concatenate((ignore_list[1], ignore[ign][1])))]
+                                    break                   
+                        
                         # Low-res
                         n_lw_ts = len(self.data['ts'][kid][tmp][att]['I_on'][0])
                         for lw in range(n_lw_ts):
-                            if not lw in ignore[0]:
 
-                                I_on = self.data['ts'][kid][tmp][att]['I_on'][0][lw]
-                                I_off = self.data['ts'][kid][tmp][att]['I_off'][0][lw]
+                            if not lw in ignore_list[0]:
 
-                                i_on_t, c1 = cr_filter(I_on, win_size=win_size, sigma_thresh=sigma_thresh, peak_pts=peak_pts, verbose=verbose)
+                                if overwrite or (not overwrite and not os.path.isfile( self.work_dir+self.project_name+'/backup_data/despike/'+kid+'/'+tmp+'/'+att+'/I-Q_low-'+str(lw)+'.npy') ):
+
+                                    I_on = self.data['ts'][kid][tmp][att]['I_on'][0][lw]
+                                    I_off = self.data['ts'][kid][tmp][att]['I_off'][0][lw]
+
+                                    i_on_t, c1 = cr_filter(I_on, win_size=win_size, sigma_thresh=sigma_thresh, peak_pts=peak_pts, verbose=verbose)
+                                    i_off_t, c1 = cr_filter(I_off, win_size=win_size, sigma_thresh=sigma_thresh, peak_pts=peak_pts, verbose=verbose)
+                                    
+                                    Q_on = self.data['ts'][kid][tmp][att]['Q_on'][0][lw]
+                                    Q_off = self.data['ts'][kid][tmp][att]['Q_off'][0][lw]
+
+                                    q_on_t, c1 = cr_filter(Q_on, win_size=win_size, sigma_thresh=sigma_thresh, peak_pts=peak_pts, verbose=verbose)
+                                    q_off_t, c1 = cr_filter(Q_off, win_size=win_size, sigma_thresh=sigma_thresh, peak_pts=peak_pts, verbose=verbose)
+
+                                    # S A V E   D A T A
+                                    data_to_save = {'I': 
+                                                        {
+                                                        'on' : i_on_t, 
+                                                        'off': i_off_t},
+                                                    'Q': 
+                                                        {
+                                                        'on' : q_on_t, 
+                                                        'off': q_off_t}
+                                    }
+
+                                    self._create_diry(self.work_dir+self.project_name+'/backup_data/despike/'+kid)
+                                    self._create_diry(self.work_dir+self.project_name+'/backup_data/despike/'+kid+'/'+tmp)
+                                    self._create_diry(self.work_dir+self.project_name+'/backup_data/despike/'+kid+'/'+tmp+'/'+att)
+
+                                    msg('Saving despiked files', 'info')
+                                    np.save(self.work_dir+self.project_name+'/backup_data/despike/'+kid+'/'+tmp+'/'+att+'/I-Q_low-'+str(lw), data_to_save)
+
+                                else: 
+
+                                    msg('Loading despiked files', 'info')
+                                    clean_data = np.load(self.work_dir+self.project_name+'/backup_data/despike/'+kid+'/'+tmp+'/'+att+'/I-Q_low-'+str(lw)+'.npy', allow_pickle=True).item()        
+                                
+                                    i_on_t, i_off_t = clean_data['I']['on'], clean_data['I']['off']
+                                    q_on_t, q_off_t = clean_data['Q']['on'], clean_data['Q']['off']
+
                                 self.data['ts'][kid][tmp][att]['I_on'][0][lw] = i_on_t
-                                i_off_t, c1 = cr_filter(I_off, win_size=win_size, sigma_thresh=sigma_thresh, peak_pts=peak_pts, verbose=verbose)
                                 self.data['ts'][kid][tmp][att]['I_off'][0][lw] = i_off_t
 
-                                Q_on = self.data['ts'][kid][tmp][att]['Q_on'][0][lw]
-                                Q_off = self.data['ts'][kid][tmp][att]['Q_off'][0][lw]
-
-                                q_on_t, c1 = cr_filter(Q_on, win_size=win_size, sigma_thresh=sigma_thresh, peak_pts=peak_pts, verbose=verbose)
                                 self.data['ts'][kid][tmp][att]['Q_on'][0][lw] = q_on_t
-                                q_off_t, c1 = cr_filter(Q_off, win_size=win_size, sigma_thresh=sigma_thresh, peak_pts=peak_pts, verbose=verbose)
                                 self.data['ts'][kid][tmp][att]['Q_off'][0][lw] = q_off_t
 
                         # High-res
                         n_hg_ts = len(self.data['ts'][kid][tmp][att]['I_on'][1])
                         for hg in range(n_hg_ts):
-                            if not hg in ignore[1]:
+                            if not hg in ignore_list[1]:
 
-                                I_on = self.data['ts'][kid][tmp][att]['I_on'][1][hg]
-                                I_off = self.data['ts'][kid][tmp][att]['I_off'][1][hg]
+                                if overwrite or (not overwrite and not os.path.isfile( self.work_dir+self.project_name+'/backup_data/despike/'+kid+'/'+tmp+'/'+att+'/I-Q_high-'+str(hg)+'.npy') ):
 
-                                i_on_t, c1 = cr_filter(I_on, win_size=win_size, sigma_thresh=sigma_thresh, peak_pts=peak_pts, verbose=verbose)
+                                    I_on = self.data['ts'][kid][tmp][att]['I_on'][1][hg]
+                                    I_off = self.data['ts'][kid][tmp][att]['I_off'][1][hg]
+
+                                    i_on_t, c1 = cr_filter(I_on, win_size=win_size, sigma_thresh=sigma_thresh, peak_pts=peak_pts, verbose=verbose)
+                                    i_off_t, c1 = cr_filter(I_off, win_size=win_size, sigma_thresh=sigma_thresh, peak_pts=peak_pts, verbose=verbose)
+                                    
+                                    Q_on = self.data['ts'][kid][tmp][att]['Q_on'][1][hg]
+                                    Q_off = self.data['ts'][kid][tmp][att]['Q_off'][1][hg]
+
+                                    q_on_t, c1 = cr_filter(Q_on, win_size=win_size, sigma_thresh=sigma_thresh, peak_pts=peak_pts, verbose=verbose)
+                                    q_off_t, c1 = cr_filter(Q_off, win_size=win_size, sigma_thresh=sigma_thresh, peak_pts=peak_pts, verbose=verbose)
+                                    
+                                    # S A V E   D A T A
+                                    data_to_save = {'I': 
+                                                        {
+                                                        'on' : i_on_t, 
+                                                        'off': i_off_t},
+                                                    'Q': 
+                                                        {
+                                                        'on' : q_on_t, 
+                                                        'off': q_off_t}
+                                    }
+
+                                    self._create_diry(self.work_dir+self.project_name+'/backup_data/despike/'+kid)
+                                    self._create_diry(self.work_dir+self.project_name+'/backup_data/despike/'+kid+'/'+tmp)
+                                    self._create_diry(self.work_dir+self.project_name+'/backup_data/despike/'+kid+'/'+tmp+'/'+att)
+
+                                    msg('Saving despiked files', 'info')
+                                    np.save(self.work_dir+self.project_name+'/backup_data/despike/'+kid+'/'+tmp+'/'+att+'/I-Q_high-'+str(hg), data_to_save)
+
+                                else: 
+
+                                    msg('Loading despiked files', 'info')
+                                    clean_data = np.load(self.work_dir+self.project_name+'/backup_data/despike/'+kid+'/'+tmp+'/'+att+'/I-Q_high-'+str(hg)+'.npy', allow_pickle=True).item()        
+                                
+                                    i_on_t, i_off_t = clean_data['I']['on'], clean_data['I']['off']
+                                    q_on_t, q_off_t = clean_data['Q']['on'], clean_data['Q']['off']
+
                                 self.data['ts'][kid][tmp][att]['I_on'][1][hg] = i_on_t
-                                i_off_t, c1 = cr_filter(I_off, win_size=win_size, sigma_thresh=sigma_thresh, peak_pts=peak_pts, verbose=verbose)
                                 self.data['ts'][kid][tmp][att]['I_off'][1][hg] = i_off_t
 
-                                Q_on = self.data['ts'][kid][tmp][att]['Q_on'][1][hg]
-                                Q_off = self.data['ts'][kid][tmp][att]['Q_off'][1][hg]
-
-                                q_on_t, c1 = cr_filter(Q_on, win_size=win_size, sigma_thresh=sigma_thresh, peak_pts=peak_pts, verbose=verbose)
                                 self.data['ts'][kid][tmp][att]['Q_on'][1][hg] = q_on_t
-                                q_off_t, c1 = cr_filter(Q_off, win_size=win_size, sigma_thresh=sigma_thresh, peak_pts=peak_pts, verbose=verbose)
                                 self.data['ts'][kid][tmp][att]['Q_off'][1][hg] = q_off_t
 
                     except Exception as e:
                         msg('Error loading file\n'+str(e), 'warn')
+
 
     def load_fit(self, folder, data_type='vna'):
         """
@@ -2459,6 +2606,7 @@ class Homodyne:
 
             except Exception as e:
                 print('Resonator fit. Fail loading '+f+'\n'+str(e))
+
 
     def load_psd(self, folder):
         """
@@ -2502,6 +2650,7 @@ class Homodyne:
 
             except Exception as e:
                 print('PSD fit. Fail loading '+f+'\n'+str(e))
+
 
     def vna_xls_report(self, name=None, kids=None):
         """
@@ -2660,10 +2809,6 @@ class Homodyne:
     def plot_dip_depths(self, kid=None, temp=None, atten=None, sample=0, cmap='jet', *args, **kwargs):
         """
         Create dip depths plot.
-        Let's start with CPW
-        Parameters
-        ----------
-        ----------
         """
 
         # Key arguments
@@ -2722,11 +2867,6 @@ class Homodyne:
                                 real_temp = f'{self.data['vna'][kid][tm][single_atten]['header'][sample]['BLACKBOD']:.1f}K'
 
                             # Get dip-depths
-                            if kid == 'K1111':
-                                dd_pts = 41
-                            else:
-                                dd_pts = 51
-
                             s21_mag = 20*np.log10(np.abs(s21))
                             
                             s21_baseline = np.concatenate((s21_mag[:baseline_lims[0]], s21_mag[-baseline_lims[1]:]))
@@ -2737,12 +2877,9 @@ class Homodyne:
 
                             s21_clear = s21_mag - fit_baseline
 
+                            dd_pts = 51
                             s21_sm = savgol_filter(s21_clear, dd_pts, 3)
                             min_s21 = np.min(s21_sm)
-
-                            #figure()
-                            #print(baseline_lims)
-                            #plot(f, s21_sm)
 
                             dd = np.abs(min_s21)
                             #print(dd)
@@ -2758,7 +2895,6 @@ class Homodyne:
                 
                     except Exception as e:
                         msg(str(e), 'fail')
-
 
                 if xg == 1 and yg == 1:
                     axm.plot(atts_num, dds, 'D', linestyle=lstyle[lstyle_pointer], label=kid)
@@ -2876,6 +3012,7 @@ class Homodyne:
         # Save figures
         fig_max.savefig(self.work_dir+self.project_name+'/fit_res_results/summary_plots/Max-dip-depths.png')
         fig_axm.savefig(self.work_dir+self.project_name+'/fit_res_results/summary_plots/Dip-depths-vs-drive-power.png')
+
 
     def plot_qs_vs_drive_power(self, kid=None, temp=None, atten=None, **kwargs):
         """
@@ -3010,7 +3147,6 @@ class Homodyne:
                     except:
                         pass
 
-
                     if k%10 == 0 and k > 0:
                         lstyle_pointer += 1
 
@@ -3040,7 +3176,7 @@ class Homodyne:
                         #ax_qr.errorbar(atts_num, qr, yerr=qr_err, marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
                         ax_qr.plot(atts_num, qr, 'o', label=kid,  linestyle=lstyle[lstyle_pointer])
                         """
-                        
+
                     else:
                         if x == 1:
                             ax_qi[i].errorbar(atts_num, qi, yerr=qi_err, color=cmap_obj(norm_color(k_color)), marker='s', ecolor='k', capsize=2, linestyle=lstyle[lstyle_pointer])
@@ -3208,7 +3344,8 @@ class Homodyne:
         fig_max.savefig(self.work_dir+self.project_name+'/fit_res_results/summary_plots/Qi_max.png')
         fig_mean.savefig(self.work_dir+self.project_name+'/fit_res_results/summary_plots/Qc_mean.png')
 
-    def plot_ts_summary(self, kid, temp, atten=None, ignore=[[0,1], [0]], cmap='viridis'):
+
+    def plot_ts_summary(self, kid, temp, atten=None, ignore={}, cmap='viridis'):
         """
         Show all the timestreams.
         Parameters
@@ -3219,7 +3356,7 @@ class Homodyne:
             Define the temperature. If 'None' take all the temperatures available.
         atten : int/list/array
             Define the attenuations. If 'None' take all the attenuations available.
-        ignore : list
+        ignore : dict
             Define the timestreams samples not used.
             First item for the low-frequency band.
             Second item for the high-frequency band.
@@ -3227,6 +3364,9 @@ class Homodyne:
             Colormap.
         ----------
         """
+
+        # Get ignores
+        ignore_keys = ignore.keys()
 
         cmap = matplotlib.cm.get_cmap(cmap)
 
@@ -3258,11 +3398,9 @@ class Homodyne:
             xl = len(kids)
             yl = np.max(low_cols)
 
-            #print()
-
-            fig_I_low, ax_I_low = subplots(xl, yl, sharey='row', figsize=(20,12))
+            fig_I_low, ax_I_low = subplots(xl, yl, figsize=(20,12)) #sharey='row',
             subplots_adjust(left=0.1, right=0.99, top=0.99, bottom=0.08, hspace=0.1, wspace=0.035)
-            fig_Q_low, ax_Q_low = subplots(xl, yl, sharey='row', figsize=(20,12))
+            fig_Q_low, ax_Q_low = subplots(xl, yl, figsize=(20,12)) #sharey='row',
             subplots_adjust(left=0.1, right=0.99, top=0.99, bottom=0.08, hspace=0.1, wspace=0.035)
 
             xh = len(kids)
@@ -3272,24 +3410,42 @@ class Homodyne:
             figs_I, axs_I = [], []
             figs_Q, axs_Q = [], []
             for i in range(int(yh/ymax)):
-                fig_I_high, ax_I_high = subplots(xh, ymax, sharey='row', figsize=(20,12))
+                fig_I_high, ax_I_high = subplots(xh, ymax, figsize=(20,12)) #sharey='row',
                 subplots_adjust(left=0.1, right=0.99, top=0.99, bottom=0.08, hspace=0.1, wspace=0.035)
                 figs_I.append(fig_I_high)
                 axs_I.append(ax_I_high)
 
-                fig_Q_high, ax_Q_high = subplots(xh, ymax, sharey='row', figsize=(20,12))
+                fig_Q_high, ax_Q_high = subplots(xh, ymax, figsize=(20,12)) #sharey='row',
                 subplots_adjust(left=0.1, right=0.99, top=0.99, bottom=0.08, hspace=0.1, wspace=0.035)
                 figs_Q.append(fig_Q_high)
                 axs_Q.append(ax_Q_high)
 
-            # -------------------------------
-
             fig_name = ""
             norm_color = matplotlib.colors.Normalize(vmin=0, vmax=len(kids))
             for k, kid in enumerate(kids):
+                
                 k2 = int(kid[1:])
                 tmp = self._get_temps_to_sweep(temp, kid)[0]
                 att = self._get_atten_to_sweep(atten[k2], tmp, kid)[0]
+
+                ignore_list = [[],[]]
+
+                if "all" in ignore_keys:
+                    ignore_list = np.copy(ignore["all"])
+
+                for ign in ignore_keys:
+                    if ign != "all":
+                        ign_kid = ign.split('-')
+                        if (ign_kid[0] == kid) and (ign_kid[1] == tmp) and (ign_kid[2] == att):
+                            ignore_list = [list(np.concatenate((ignore_list[0], ignore[ign][0]))), \
+                                list(np.concatenate((ignore_list[1], ignore[ign][1])))]
+                            break
+
+                maxs_I_low, maxs_Q_low = [], []
+                mins_I_low, mins_Q_low = [], []
+
+                maxs_I_high, maxs_Q_high = [], []
+                mins_I_high, mins_Q_high = [], []
 
                 for ts in range(yl):
                     try:
@@ -3298,6 +3454,7 @@ class Homodyne:
                         Q_low = self.data['ts'][kid][tmp][att]['Q_on'][0][ts]
 
                         if len(kids) == 1:
+
                             ax_I_low[ts].plot(ts_low, I_low, lw=0.75, color=cmap(norm_color(k)))
                             ax_Q_low[ts].plot(ts_low, Q_low, lw=0.75, color=cmap(norm_color(k)))
 
@@ -3315,7 +3472,11 @@ class Homodyne:
                                 ax_I_low[ts].set_xticks([])
                                 ax_Q_low[ts].set_xticks([])
 
-                            if ts in ignore[0]:
+                            if ts > 0:
+                                ax_I_low[ts].set_yticks([])
+                                ax_Q_low[ts].set_yticks([])        
+
+                            if ts in ignore_list[0]:
                                 ax_I_low[ts].patch.set_facecolor('red')
                                 ax_I_low[ts].patch.set_alpha(0.2)
 
@@ -3329,7 +3490,14 @@ class Homodyne:
                                 ax_Q_low[ts].patch.set_facecolor('green')
                                 ax_Q_low[ts].patch.set_alpha(0.2)
 
+                                maxs_I_low.append(np.max(I_low))
+                                maxs_Q_low.append(np.max(Q_low))
+
+                                mins_I_low.append(np.min(I_low))
+                                mins_Q_low.append(np.min(Q_low))
+
                         else:
+
                             ax_I_low[k, ts].plot(ts_low, I_low, lw=0.75, color=cmap(norm_color(k)))
                             ax_Q_low[k, ts].plot(ts_low, Q_low, lw=0.75, color=cmap(norm_color(k)))
 
@@ -3346,8 +3514,12 @@ class Homodyne:
                             else:
                                 ax_I_low[k, ts].set_xticks([])
                                 ax_Q_low[k, ts].set_xticks([])
+                            
+                            if ts > 0:
+                                ax_I_low[k, ts].set_yticks([])
+                                ax_Q_low[k, ts].set_yticks([])    
 
-                            if ts in ignore[0]:
+                            if ts in ignore_list[0]:
                                 ax_I_low[k, ts].patch.set_facecolor('red')
                                 ax_I_low[k, ts].patch.set_alpha(0.2)
 
@@ -3361,8 +3533,33 @@ class Homodyne:
                                 ax_Q_low[k, ts].patch.set_facecolor('green')
                                 ax_Q_low[k, ts].patch.set_alpha(0.2)
 
+                                maxs_I_low.append(np.max(I_low))
+                                maxs_Q_low.append(np.max(Q_low))
+
+                                mins_I_low.append(np.min(I_low))
+                                mins_Q_low.append(np.min(Q_low))
+
                     except Exception as e:
                         msg(kid+'-'+tmp+'-'+att+'-'+str(e), 'warn')
+
+                max_I_low = np.max(maxs_I_low)
+                max_Q_low = np.max(maxs_Q_low)
+
+                min_I_low = np.min(mins_I_low)
+                min_Q_low = np.min(mins_Q_low)
+
+                for ts in range(yl):
+                    try:
+                        if not ts in ignore_list[0]:
+                            if len(kids) == 1:
+                                ax_I_low[ts].set_ylim([min_I_low, max_I_low])
+                                ax_Q_low[ts].set_ylim([min_Q_low, max_Q_low])
+
+                            else:
+                                ax_I_low[k, ts].set_ylim([min_I_low, max_I_low])
+                                ax_Q_low[k, ts].set_ylim([min_Q_low, max_Q_low])
+                    except:
+                        pass
 
                 cnt = -1
                 for th in range(yh):
@@ -3394,7 +3591,11 @@ class Homodyne:
                                 axs_I[cnt][m].set_xticks([])
                                 axs_Q[cnt][m].set_xticks([])
 
-                            if th in ignore[1]:
+                            if m > 0:
+                                axs_I[cnt][m].set_yticks([])
+                                axs_Q[cnt][m].set_yticks([])  
+
+                            if th in ignore_list[1]:
                                 axs_I[cnt][m].patch.set_facecolor('red')
                                 axs_I[cnt][m].patch.set_alpha(0.2)
 
@@ -3407,6 +3608,12 @@ class Homodyne:
 
                                 axs_Q[cnt][m].patch.set_facecolor('green')
                                 axs_Q[cnt][m].patch.set_alpha(0.2)
+
+                                maxs_I_high.append(np.max(I_high))
+                                maxs_Q_high.append(np.max(Q_high))
+
+                                mins_I_high.append(np.min(I_high))
+                                mins_Q_high.append(np.min(Q_high))
 
                         else:                        
                             axs_I[cnt][k, m].plot(ts_high, I_high, lw=0.75, color=cmap(norm_color(k)))
@@ -3426,7 +3633,11 @@ class Homodyne:
                                 axs_I[cnt][k, m].set_xticks([])
                                 axs_Q[cnt][k, m].set_xticks([])
 
-                            if th in ignore[1]:
+                            if m > 0:
+                                axs_I[cnt][k, m].set_yticks([])
+                                axs_Q[cnt][k, m].set_yticks([])    
+
+                            if th in ignore_list[1]:
                                 axs_I[cnt][k, m].patch.set_facecolor('red')
                                 axs_I[cnt][k, m].patch.set_alpha(0.2)
 
@@ -3440,9 +3651,40 @@ class Homodyne:
                                 axs_Q[cnt][k, m].patch.set_facecolor('green')
                                 axs_Q[cnt][k, m].patch.set_alpha(0.2)
 
+                                maxs_I_high.append(np.max(I_high))
+                                maxs_Q_high.append(np.max(Q_high))
+
+                                mins_I_high.append(np.min(I_high))
+                                mins_Q_high.append(np.min(Q_high))
+
                     except Exception as e:
                         msg(kid+'-'+tmp+'-'+att+'-'+str(e), 'warn')
 
+                max_I_high = np.max(maxs_I_high)
+                max_Q_high = np.max(maxs_Q_high)
+
+                min_I_high = np.min(mins_I_high)
+                min_Q_high = np.min(mins_Q_high)
+
+                cnt = -1
+                for th in range(yh):
+                    if th%ymax == 0:
+                        cnt += 1
+
+                    m = th%ymax
+
+                    try:
+                        if not th in ignore_list[1]:
+                            if len(kids) == 1:
+                                axs_I[cnt][m].set_ylim([min_I_high, max_I_high])
+                                axs_Q[cnt][m].set_ylim([min_Q_high, max_Q_high])
+
+                            else:
+                                axs_I[cnt][k, m].set_ylim([min_I_high, max_I_high])
+                                axs_Q[cnt][k, m].set_ylim([min_Q_high, max_Q_high])
+                    except:
+                        pass
+                        
                 fig_name += kid+'-'
 
             # Save figures
@@ -3467,6 +3709,7 @@ class Homodyne:
                 close(figs_Q[c])
 
             close("all")
+
 
     def plot_all_s21_kids(self, kid, temp, atten, sample=0, over_attens=True, data_source='vna', cmap='jet', fig_name=None):
         """
@@ -3733,6 +3976,7 @@ class Homodyne:
                 fig.savefig(self.work_dir+self.project_name+'/fit_res_results/summary_plots/'+fig_name+'.png')
                 close(fig)
 
+
     def _get_meas_type(self):
         """
         Get measurement type, dark or blackbody measurement.
@@ -3745,6 +3989,7 @@ class Homodyne:
             nzeros = 3
 
         return type_data, nzeros
+
 
     def _get_kids_to_sweep(self, kid, mode='vna'):
         """
@@ -3775,6 +4020,7 @@ class Homodyne:
         kids = sorted(kids)
 
         return kids
+
 
     def _get_temps_to_sweep(self, temp, kid=None, mode='vna', vna_type='seg'):
         """
@@ -3817,6 +4063,7 @@ class Homodyne:
 
         temps = sorted(temps)
         return temps
+
 
     def _get_atten_to_sweep(self, atten, temp=None, kid=None, mode='vna'):
         """
@@ -3868,6 +4115,7 @@ class Homodyne:
         #attens = sorted(attens)
         return n_attens
 
+
     def _create_diry(self, diry):
         """
         Create a directory.
@@ -3882,6 +4130,7 @@ class Homodyne:
         except Exception as e:
         	msg('Directory not created. '+str(e), 'warn')
 
+
     def _fit_res_join(self, kid, temp, atten, f, s21, n, tau):
         """
         Fit resonator job.
@@ -3889,6 +4138,7 @@ class Homodyne:
         fit_res = fit_resonator(f, s21, n=n, tau=tau)
         print(kid+','+temp+','+atten)
         fitRes[kid+','+temp+','+atten] = fit_res
+
 
     def _extract_features_from_name(self, name, **kwargs):
         """
@@ -3941,6 +4191,7 @@ class Homodyne:
             msg('Data not identified in the name file.\n'+str(e), 'fail')
 
         return None, None, None
+
 
     def _get_meas_char_from_foldername(self, foldername):
         """

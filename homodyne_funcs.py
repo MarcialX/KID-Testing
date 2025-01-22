@@ -120,7 +120,7 @@ def find_kids_segmented_vna(f, thresh=1e4, exp=None):
 
     return n_kids
 
-def fit_mix_psd(f, psd_mix, f0, Qr, trim_range=[0.2, 9e4], plot_name="", n_pts=500, inter=True, smooth_params=[21, 3]):
+def fit_mix_psd(f, psd_mix, f0, Qr, trim_range=[0.2, 9e4], plot_name="", n_pts=500, inter=True, smooth_params=[21, 3], phases=[]):
     """
     Get the pixed PSD.
     Parameters
@@ -162,7 +162,7 @@ def fit_mix_psd(f, psd_mix, f0, Qr, trim_range=[0.2, 9e4], plot_name="", n_pts=5
         # P E R F O R M   T H E   F I T
         # -----------------------------
         ioff()
-        fit_psd_obj.apply_psd_fit(fm, psd_trim, f0, Qr, amp_noise, inter=inter)
+        fit_psd_obj.apply_psd_fit(fm, psd_trim, f0, Qr, amp_noise, phases=phases, inter=inter)
         ion()
 
         # F I T    R E S U L T S
@@ -349,7 +349,8 @@ def get_homodyne_data(directory, avoid=[[], []]):
     (ts_low_off, I_low_off, Q_low_off, hr_low_off), (ts_high_off, I_high_off, Q_high_off, hr_high_off), (f_s21_high, s21_high)
 
 # Mix high and low PSD data
-def mix_psd(freqs, psd, xp=800):
+def mix_psd(freqs, psd, f_joint=800):
+
     # Sort the frequencies in the list
     idx_one = []
     for i in range(len(freqs)):
@@ -363,15 +364,23 @@ def mix_psd(freqs, psd, xp=800):
     # Frequencies
     ff0 = freqs[sort_list.index(0)]
     ff1 = freqs[sort_list.index(1)]
+
     # PSD
     pf0 = psd[sort_list.index(0)]
     pf1 = psd[sort_list.index(1)]
 
-    if xp is None:
-        xp = ff0[-1]
+    if f_joint is None:
+        f_joint = ff0[-1]
+        msg(f'Intersection frequency not defined. \
+            Max freq assigned: {ff0[-1]:.2f} [Hz]', 'warn')
 
-    xp_idx0 = np.where(ff0>=xp)[0][0]
-    xp_idx1 = np.where(ff1>=xp)[0][0]
+    if f_joint > ff0[-1]:
+        msg(f'Intersection frequency is greater than max freq of low resolution data. \
+            Max freq assigned: {ff0[-1]:.2f} [Hz]', 'warn')
+        f_joint = ff0[-1]
+
+    xp_idx0 = np.where(ff0>=f_joint)[0][0]
+    xp_idx1 = np.where(ff1>=f_joint)[0][0]
 
     full_freq = np.concatenate((ff0[:xp_idx0], ff1[xp_idx1:]))
     full_psd = np.concatenate((pf0[:xp_idx0], pf1[xp_idx1:]))
@@ -440,6 +449,7 @@ def get_noise_from_single_file(path, deglitch=False, avoid=[[0, 1], []], **kwarg
     hdul.close()
 
     fs = hdr['SAMPLERA']
+    t_tot = hdr['SAMPLELE']
 
     # Load timestream data
     I = [data_fits.field(2*i) for i in range(int(len(data_fits[0])/2))]
@@ -459,10 +469,8 @@ def get_noise_from_single_file(path, deglitch=False, avoid=[[0, 1], []], **kwarg
             Id.append(i_t)
             Qd.append(q_t)
 
-        #print('Reading...', i)
-    #print('All read')
-
-    tm = np.arange(0, (1/fs)*len(i_t), 1/fs)
+    tm = np.linspace(0, t_tot, len(i_t))
+    #tm = np.arange(0, (1/fs)*len(i_t), 1/fs)
 
     return tm, Id, Qd, hdr
 
@@ -507,17 +515,11 @@ def get_rot_iq_circle(f0, I0, Q0, fs, Is, Qs, f_high, s21_high, f0_thresh=8e4):
 
     phase_sm = savgol_filter(phase, 11, 3) # 11, 3
 
-
-    print('Dummy')
-    ioff()
-    plot([0], [0])
-    show()
-       
-    ioff()
-    fig, ax = subplots(1, 1)
-    ax.plot(f_high, phase, 'r.-')
-    ax.plot(f_high, phase_sm, 'k.-')
-
+    #print('Dummy')
+    #ioff()
+    #plot([0], [0])
+    #show()       
+    #ioff()
     
     f_mask = np.abs(fs - f0) < 3*f0_thresh
 
@@ -528,9 +530,14 @@ def get_rot_iq_circle(f0, I0, Q0, fs, Is, Qs, f_high, s21_high, f0_thresh=8e4):
 
     phase0 = np.arctan2(Q0_derot, I0_derot)  
     
+    """
+    fig, ax = subplots(1, 1)
+    ax.plot(f_high, phase, 'r.-')
+    ax.plot(f_high, phase_sm, 'k.-')
     ax.plot(kid_mdl(phase0), phase0, 'ms')
     show()
-
+    """
+    
     """
     fig, axs = subplots(1, 1, figsize=(20,12))
     axs.plot(fs, phase, 'b.-')
@@ -542,7 +549,7 @@ def get_rot_iq_circle(f0, I0, Q0, fs, Is, Qs, f_high, s21_high, f0_thresh=8e4):
     close(fig)
     """
     
-    return xc, yc, theta, Is_derot, Qs_derot, kid_mdl
+    return xc, yc, theta, Is_derot, Qs_derot, kid_mdl, [f_high, kid_mdl(phase0), phase, phase_sm, phase0]
 
 def derot_phase(xc, yc, theta, I, Q):
     """
@@ -585,7 +592,7 @@ def df_from_derot_circle(xc, yc, theta, I, Q, kid_mdl, f0, name='', mode='on', a
     
     print('D E R O T A T I O N !')
     print('-----------------------')
-    print(xc, yc, theta)
+    print(f'Center: ({xc:.3f}, {yc:.3f})\nTheta: {theta:.3f}')
     print('-----------------------')
 
     df_derot = []

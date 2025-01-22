@@ -376,22 +376,23 @@ for s, step in enumerate(TASKS):
             msg('Error despiking timestreams', 'fail')
 
         if flag_plot_ts:
-            #try:
-            msg('Generating timestream plots...', 'ok')
+            try:
+                msg('Generating timestream plots...', 'ok')
 
-            kids = h._get_kids_to_sweep(kids, mode='ts')
-            tmps = []
-            for kid in kids:
-                tps = h._get_temps_to_sweep(temps, kid, mode='ts')
-                if len(tps) > len(tmps):
-                    tmps = tps 
-            
-            for tmp in tps:
-                h.plot_ts_summary(kids, tmp, **plot_args)
-    
-            msg('Done', 'ok')
-            #except Exception as e:
-            #    msg('Error building ts plots.\n'+str(e), 'fail')
+                kids = h._get_kids_to_sweep(kids, mode='ts')
+                tmps = []
+                for kid in kids:
+                    tps = h._get_temps_to_sweep(temps, kid, mode='ts')
+                    if len(tps) > len(tmps):
+                        tmps = tps 
+                
+                for tmp in tps:
+                    h.plot_ts_summary(kids, tmp, atten=atts, **plot_args)
+        
+                msg('Done', 'ok')
+                
+            except Exception as e:
+                msg('Error building ts plots.\n'+str(e), 'fail')
 
     # ---> Plot ts
     elif task_name == "plot_ts":
@@ -443,6 +444,8 @@ for s, step in enumerate(TASKS):
                 the_args['n_pts'] = task_params['n_pts']
             elif p == 'inter':
                 the_args['inter'] = task_params['inter']
+            elif p == 'f_joint':
+                the_args['f_joint'] = task_params['f_joint']
             elif p == 'smooth_params':
                 the_args['smooth_params'] = task_params['smooth_params']
 

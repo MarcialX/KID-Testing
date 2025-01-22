@@ -223,10 +223,11 @@ class fit_psd(object):
         self._ax.semilogx(freq_psd, 10*np.log10(psd_fit), 'k')
         
         self._ax.set_title(self.plot_name)
+        self._ax.grid()
         self._ax.set_xlabel(r'Frequency [Hz]', fontsize=18, weight='bold')
         self._ax.set_ylabel(r'PSD [Hz$^2$/Hz] ', fontsize=18, weight='bold')
 
-    def apply_psd_fit(self, freq_psd, psd, f0_fits, Q, amp_noise, inter=False):
+    def apply_psd_fit(self, freq_psd, psd, f0_fits, Q, amp_noise, inter=False, phases=[]):
         """
         Apply PSD fit.
         Parameters
@@ -275,9 +276,9 @@ class fit_psd(object):
 
         # Interactive mode
         if inter:
-            self.interactive_mode(freq_psd, psd, fit_PSD_s)
+            self.interactive_mode(freq_psd, psd, fit_PSD_s, phases=phases)
 
-    def interactive_mode(self, freq_psd, psd, fit_PSD_s):
+    def interactive_mode(self, freq_psd, psd, fit_PSD_s, phases=[]):
         """
         Interactive mode to clean psd data.
         Parameters
@@ -292,8 +293,26 @@ class fit_psd(object):
         """
 
         # Create figures
-        self._fig = figure()
-        self._ax = self._fig.add_subplot(111)
+        self._fig = figure(figsize=(18, 12))
+
+        # Plot phase graph
+        if len(phases) > 0:
+
+            gs = GridSpec(nrows=2, ncols=1, height_ratios=[3, 1])
+            self._ax = self._fig.add_subplot(gs[0, 0])
+
+            ax_phase = self._fig.add_subplot(gs[1, 0])
+            
+            f_high, f0, phase, phase_sm, phase0 = phases[0], phases[1], phases[2], phases[3], phases[4]
+            ax_phase.plot(f_high/1e6, phase, 'r.-')
+            ax_phase.plot(f_high/1e6, phase_sm, 'k.-')
+            ax_phase.plot(f0/1e6, phase0, 'ms')
+            ax_phase.set_xlabel('Frequency [MHz]')
+            ax_phase.set_ylabel('Phase [rad]')
+            ax_phase.grid()
+
+        else:
+            self._ax = self._fig.add_subplot(111)
 
         self._freq_psd = freq_psd
         self._psd = psd
